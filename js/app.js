@@ -8,6 +8,7 @@
   /* ---------------- defaults ---------------- */
   const DEFAULT_SETTINGS = {
     companyName: 'My Resale Co.',
+    showName: true,
     tagline: 'Inventory & Sales Ledger',
     currency: 'USD',
     agingDays: 90,
@@ -2401,7 +2402,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.21';
+  const APP_VERSION = '2026.11.21b';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -2488,13 +2489,14 @@
     U.setCurrency(S().currency);
     $('#companyName').value = S().companyName;
     $('#companyTag').textContent = S().tagline || '';
+    document.querySelector('.topbar').classList.toggle('name-hidden', S().showName === false);
     document.title = `${S().companyName} — Inventory & Sales`;
     $('#lgAging').textContent = S().agingDays; $('#lgStale').textContent = S().staleDays;
     populateFilters(); renderSettings(); renderLogo(); armAutoLock();
   }
   function renderSettings() {
     const s = S();
-    $('#setCompany').value = s.companyName; $('#setTagline').value = s.tagline || ''; $('#setCurrency').value = s.currency;
+    $('#setCompany').value = s.companyName; $('#setTagline').value = s.tagline || ''; $('#setShowName').checked = s.showName !== false; $('#setCurrency').value = s.currency;
     $('#setAging').value = s.agingDays; $('#setStale').value = s.staleDays;
     $('#setCategories').value = s.categories.join(', ');
     $('#setStatuses').value = s.statuses.join(', '); $('#setExpCats').value = s.expenseCategories.join(', ');
@@ -2513,6 +2515,7 @@
     });
     bind('#setCompany', 'companyName', (v) => v.trim() || 'My Company');
     bind('#setTagline', 'tagline', (v) => v.trim());
+    bind('#setShowName', 'showName');
     bind('#setCurrency', 'currency');
     bind('#setAging', 'agingDays', (v) => Math.max(1, parseInt(v, 10) || 90));
     bind('#setStale', 'staleDays', (v) => Math.max(1, parseInt(v, 10) || 180));
@@ -2535,7 +2538,13 @@
     bind('#setCategories', 'categories', (v) => uniq(U.splitList(v).map((x) => x.toLowerCase())));
     bind('#setStatuses', 'statuses', (v) => uniq(['available', 'sold', ...U.splitList(v).map((x) => x.toLowerCase())]));
     bind('#setExpCats', 'expenseCategories', (v) => uniq(U.splitList(v)));
-    $('#companyName').addEventListener('change', (e) => { S().companyName = e.target.value.trim() || 'My Company'; saveSettings(); applySettingsToUI(); });
+    $('#companyName').addEventListener('change', (e) => {
+      const v = e.target.value.trim();
+      // clearing the name in the header hides it there (handy when the logo already has the name); reports keep the saved name
+      if (!v) { S().showName = false; U.toast('Name hidden from the header — it’s still used on reports and file names. Show it again in Settings → Business.', 'ok'); }
+      else S().companyName = v;
+      saveSettings(); applySettingsToUI();
+    });
     $('#companyName').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 
     $('#logoSlot').onclick = () => $('#logoInput').click();
