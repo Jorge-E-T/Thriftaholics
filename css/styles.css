@@ -633,3 +633,8 @@ td.ed:hover .add-listing { color: var(--ink-3); }
 .tier-box { display: grid; gap: 6px; margin: 6px 0 10px; padding: 10px 12px; border: 1px dashed var(--line, #d8ddd9); border-radius: 10px; }
 .tier-row { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .tier-row input { width: 90px; }
+
+/* header without the name: give a wide logo (one that already has the name) more room */
+.topbar.name-hidden .brand-text { display: none; }
+.topbar.name-hidden .logo-slot img { height: 64px; max-width: min(380px, 60vw); }
+.topbar.name-hidden .logo-slot { height: 64px; max-width: min(380px, 60vw); }
