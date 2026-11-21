@@ -1,0 +1,16 @@
+{
+  "name": "Inventory & Sales Ledger",
+  "short_name": "Ledger",
+  "description": "Private inventory, cross-listing and sales tracker.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#123c3a",
+  "theme_color": "#123c3a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

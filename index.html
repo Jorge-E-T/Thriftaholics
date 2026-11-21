@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Inventory &amp; Sales Ledger</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23123c3a'/%3E%3Cpath d='M9 11h14M9 16h14M9 21h9' stroke='%23e9c46a' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#123c3a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ledger" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- ============ LOCK SCREEN ============ -->
+  <section id="lock" class="lock" aria-label="Unlock">
+    <div class="lock-card">
+      <div class="lock-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M9 11h14M9 16h14M9 21h9" stroke="#e9c46a" stroke-width="2.4" stroke-linecap="round"/></svg>
+      </div>
+      <h1 class="lock-title">Inventory &amp; Sales Ledger</h1>
+      <p class="lock-sub" id="lockSub">Enter your password to unlock your data.</p>
+      <form id="lockForm" autocomplete="off">
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="lockPass" required minlength="6" autocomplete="current-password" />
+        </label>
+        <label class="field hidden" id="lockConfirmWrap">
+          <span>Confirm password</span>
+          <input type="password" id="lockConfirm" minlength="6" autocomplete="new-password" />
+        </label>
+        <label class="field hidden" id="lockHintWrap">
+          <span>Password hint (optional)</span>
+          <input type="text" id="lockHint" maxlength="120" placeholder="A reminder only you understand — never the password" autocomplete="off" />
+        </label>
+        <p class="hint-box hidden" id="lockHintShow"></p>
+        <p class="lock-error" id="lockError" role="alert"></p>
+        <button class="btn btn-primary btn-block" type="submit" id="lockBtn">Unlock</button>
+      </form>
+      <p class="lock-foot">
+        Data is encrypted with AES-256 on this device and never leaves your browser.
+        <button type="button" class="linklike" id="lockReset">Forgot password?</button>
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <button class="logo-slot" id="logoSlot" title="Click to upload a PNG logo" type="button">
+          <img id="logoImg" alt="Company logo" class="hidden" />
+          <span class="logo-ph" id="logoPh">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16l4.5-5 3.5 4 2.5-3L20 16M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            <span>Your logo<br/><small>PNG</small></span>
+          </span>
+        </button>
+        <input type="file" id="logoInput" accept="image/png" hidden />
+        <div class="brand-text">
+          <input id="companyName" class="company-name" value="My Resale Co." aria-label="Company name" spellcheck="false" />
+          <span class="company-tag" id="companyTag">Inventory &amp; Sales Ledger</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="save-state" id="saveState">All changes saved</span>
+        <button class="btn btn-ghost" id="btnExportJson" type="button" title="Download a JSON backup">
+          <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" /></svg>Backup
+        </button>
+        <button class="btn btn-ghost" id="btnImportJson" type="button" title="Restore from a JSON backup">
+          <svg viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4l4 4M5 19h14" /></svg>Restore
+        </button>
+        <input type="file" id="importJsonInput" accept="application/json,.json" hidden />
+        <button class="btn btn-gold" id="btnExportXlsx" type="button">
+          <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM9 12l5 6m0-6l-5 6" /></svg>Excel Report
+        </button>
+        <span class="sync-state hidden" id="syncState" title="Google Drive sync"></span>
+        <button class="btn btn-icon" id="btnScan" type="button" title="Scan a label (QR code or barcode)" aria-label="Scan a label">
+          <svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M7 12h10"/></svg>
+        </button>
+        <button class="btn btn-icon" id="btnLock" type="button" title="Lock now" aria-label="Lock">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="dashboard" role="tab">Dashboard</button>
+      <button class="tab" data-view="inventory" role="tab">Inventory <span class="pill" id="tabInvCount">0</span></button>
+      <button class="tab" data-view="actions" role="tab">Action Center <span class="pill" id="tabActCount">0</span></button>
+      <button class="tab" data-view="orders" role="tab">Orders &amp; Sales <span class="pill" id="tabSoldCount">0</span></button>
+      <button class="tab" data-view="platforms" role="tab">Platforms</button>
+      <button class="tab" data-view="expenses" role="tab">Expenses</button>
+      <button class="tab" data-view="reports" role="tab">Reports</button>
+      <button class="tab" data-view="settings" role="tab">Settings</button>
+    </nav>
+
+    <main class="main">
+      <div id="banner" class="banner hidden" role="status"></div>
+      <!-- DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <div class="view-head">
+          <div>
+            <h2>Overview</h2>
+            <p class="muted" id="dashRangeLabel">All time</p>
+          </div>
+          <div class="range-picker">
+            <select id="dashRange">
+              <option value="all">All time</option>
+              <option value="ytd">Year to date</option>
+              <option value="lastyear">Last year</option>
+              <option value="90">Last 90 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="month">This month</option>
+            </select>
+          </div>
+        </div>
+        <div class="kpis" id="kpis"></div>
+        <div id="goalsCard"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Monthly sales &amp; profit</h3><span class="muted small" id="chartRangeLabel"></span></div>
+            <canvas id="chartMonthly" height="260"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Sales by platform</h3></div>
+            <div id="platformBars" class="hbars"></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Inventory aging</h3><span class="muted small">Unsold items by days listed</span></div>
+            <div id="agingBars" class="aging"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Stale items needing attention</h3><button class="linklike" data-goto-filter="stale">View all</button></div>
+            <div id="staleList" class="mini-list"></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Inventory by category</h3></div>
+            <div id="categoryTable"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Recent sales</h3><button class="linklike" data-goto="orders">View all</button></div>
+            <div id="recentSales" class="mini-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INVENTORY -->
+      <section class="view" id="view-inventory">
+        <div class="toolbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+            <input type="search" id="invSearch" placeholder="Search name, SKU, category, platform, notes…" />
+          </div>
+          <select id="fStatus" aria-label="Filter status"><option value="">All statuses</option></select>
+          <select id="fCategory" aria-label="Filter category"><option value="">All categories</option></select>
+          <select id="fPlatform" aria-label="Filter platform"><option value="">All platforms</option></select>
+          <select id="fAge" aria-label="Filter age">
+            <option value="">Any age</option>
+            <option value="fresh">Fresh</option>
+            <option value="aging">Aging</option>
+            <option value="stale">Stale</option>
+            <option value="sold">Sold</option>
+          </select>
+          <button class="btn btn-ghost" id="btnClearFilters" type="button">Clear</button>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost" id="btnColumns" type="button">Columns</button>
+          <button class="btn btn-ghost" id="btnImportOther" type="button" title="Import a JSON backup from this or another inventory program">Import JSON</button>
+          <button class="btn btn-ghost" id="btnImportXlsx" type="button" title="Import rows from an Excel inventory sheet">Import Excel</button>
+          <input type="file" id="importXlsxInput" accept=".xlsx" hidden />
+          <button class="btn btn-primary" id="btnAddItem" type="button">+ Add item</button>
+        </div>
+
+        <div class="legend">
+          <span><i class="sw sw-sold"></i>Sold</span>
+          <span><i class="sw sw-fresh"></i>Fresh</span>
+          <span><i class="sw sw-aging"></i><span>Aging (<b id="lgAging">90</b>+ days)</span></span>
+          <span><i class="sw sw-stale"></i><span>Stale (<b id="lgStale">180</b>+ days)</span></span>
+          <span><i class="sw sw-pending"></i>Pending / Other</span>
+          <span class="spacer"></span>
+          <span class="muted small">Click a cell to edit · Click a header to sort · Drag a photo onto any row</span>
+        </div>
+
+        <div class="bulkbar hidden" id="bulkBar">
+          <span id="bulkCount">0 selected</span>
+          <button class="btn btn-sm" data-bulk="sold" type="button">Mark sold…</button>
+          <button class="btn btn-sm" data-bulk="available" type="button">Mark available</button>
+          <button class="btn btn-sm" data-bulk="price" type="button">Change price…</button>
+          <button class="btn btn-sm" data-bulk="category" type="button">Set category…</button>
+          <button class="btn btn-sm" data-bulk="location" type="button">Set location…</button>
+          <button class="btn btn-sm" data-bulk="labels" type="button">Print labels</button>
+          <button class="btn btn-sm" data-bulk="refreshed" type="button">Refreshed</button>
+          <button class="btn btn-sm" data-bulk="duplicate" type="button">Duplicate</button>
+          <button class="btn btn-sm btn-danger" data-bulk="delete" type="button">Delete</button>
+          <button class="btn btn-sm btn-ghost" data-bulk="clear" type="button">Clear selection</button>
+        </div>
+
+        <div class="table-wrap" id="invWrap">
+          <table class="grid" id="invTable">
+            <thead></thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+        <div class="table-foot muted small" id="invFootNote"></div>
+      </section>
+
+      <!-- ACTION CENTER -->
+      <section class="view" id="view-actions">
+        <div class="view-head"><div><h2>Action Center</h2><p class="muted">Everything that needs you today: delisting, price drops, refreshes, old stock decisions, taxes and backups.</p></div></div>
+        <div class="kpis kpis-sm" id="actKpis"></div>
+        <div id="actBody" class="act-body"></div>
+      </section>
+
+      <!-- ORDERS -->
+      <section class="view" id="view-orders">
+        <div class="view-head">
+          <div>
+            <h2>Orders &amp; Sales</h2>
+            <p class="muted">Every sold item, with fees and profit. Record a new sale from any inventory item.</p>
+          </div>
+          <button class="btn btn-primary" id="btnNewOrder" type="button">+ Record sale</button>
+        </div>
+        <div class="toolbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+            <input type="search" id="ordSearch" placeholder="Search sold items…" />
+          </div>
+          <select id="ordPlatform"><option value="">All platforms</option></select>
+          <label class="inline">From <input type="date" id="ordFrom" /></label>
+          <label class="inline">To <input type="date" id="ordTo" /></label>
+          <button class="btn btn-ghost" id="ordClear" type="button">Clear</button>
+        </div>
+        <div class="kpis kpis-sm" id="ordKpis"></div>
+        <div class="table-wrap">
+          <table class="grid" id="ordTable"><thead></thead><tbody></tbody><tfoot></tfoot></table>
+        </div>
+      </section>
+
+      <!-- PLATFORMS -->
+      <section class="view" id="view-platforms">
+        <div class="view-head">
+          <div>
+            <h2>Platforms</h2>
+            <p class="muted">Where you sell and what each one charges. These settings estimate the payout when you record a sale, and power the calculator below. Everything is editable.</p>
+          </div>
+          <button class="btn btn-primary" id="btnAddPlatform" type="button">+ Add platform</button>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-head"><h3>Fee calculator</h3><span class="muted small">What you’d keep on each platform</span></div>
+          <div class="form-grid g3 calc-inputs">
+            <label class="field"><span>Sale price</span><input id="pcPrice" inputmode="decimal" value="40"></label>
+            <label class="field"><span>Your item cost</span><input id="pcCost" inputmode="decimal" value="5"></label>
+            <label class="field"><span>Buyer-paid shipping (optional)</span><input id="pcShip" inputmode="decimal" placeholder="uses each platform’s typical charge"></label>
+          </div>
+          <div id="pcTable"></div>
+        </div>
+        <div class="plat-grid" id="platGrid"></div>
+      </section>
+
+      <!-- EXPENSES -->
+      <section class="view" id="view-expenses">
+        <div class="view-head">
+          <div>
+            <h2>Expenses</h2>
+            <p class="muted">Itemized business costs beyond item purchase prices — supplies, shipping, subscriptions, mileage.</p>
+          </div>
+          <button class="btn btn-primary" id="btnAddExpense" type="button">+ Add expense</button>
+        </div>
+        <div class="toolbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+            <input type="search" id="expSearch" placeholder="Search expenses…" />
+          </div>
+          <select id="expCatFilter"><option value="">All categories</option></select>
+          <label class="inline">From <input type="date" id="expFrom" /></label>
+          <label class="inline">To <input type="date" id="expTo" /></label>
+        </div>
+        <div class="grid-2 grid-2-wide">
+          <div class="table-wrap">
+            <table class="grid" id="expTable"><thead></thead><tbody></tbody><tfoot></tfoot></table>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>By category</h3></div>
+            <div id="expByCat" class="hbars"></div>
+          </div>
+        </div>
+              <div class="card" style="margin-top:16px">
+          <div class="card-head"><h3>Mileage log</h3><span class="muted small" id="mileSummary"></span></div>
+          <div class="toolbar"><select id="mileYear" aria-label="Year"></select><span class="spacer"></span><button class="btn btn-primary btn-sm" id="btnAddTrip" type="button">+ Log a trip</button></div>
+          <div class="table-wrap"><table class="grid" id="mileTable"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
+          <p class="muted small">Business miles are deducted at the IRS standard rate in effect on each trip’s date (edit rates in Settings → Taxes). Using the standard rate means you can’t also deduct actual car costs like gas.</p>
+        </div>
+      </section>
+
+      <!-- REPORTS -->
+      <section class="view" id="view-reports">
+        <div class="view-head">
+          <div>
+            <h2>Financial Report</h2>
+            <p class="muted">Profit &amp; loss, taxes and assets for any period. Export a formatted Excel workbook.</p>
+          </div>
+          <div class="report-controls">
+            <label class="inline">From <input type="date" id="repFrom" /></label>
+            <label class="inline">To <input type="date" id="repTo" /></label>
+            <select id="repPreset">
+              <option value="">Custom…</option>
+              <option value="all" selected>All time</option>
+              <option value="ytd">Year to date</option>
+              <option value="lastyear">Last year</option>
+              <option value="q">This quarter</option>
+              <option value="month">This month</option>
+            </select>
+            <button class="btn btn-gold" id="btnExportXlsx2" type="button">Export Excel</button>
+          </div>
+        </div>
+        <div class="report" id="reportBody"></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="view" id="view-settings">
+        <div class="view-head"><div><h2>Settings</h2><p class="muted">Business details, thresholds, tax estimates, security and data.</p></div></div>
+        <div class="settings-grid">
+          <div class="card">
+            <h3>Business</h3>
+            <label class="field"><span>Company name</span><input id="setCompany" /></label>
+            <label class="field"><span>Tagline (shown under name)</span><input id="setTagline" /></label>
+            <label class="field"><span>Currency</span>
+              <select id="setCurrency">
+                <option value="USD">USD — $</option><option value="CAD">CAD — $</option><option value="EUR">EUR — €</option>
+                <option value="GBP">GBP — £</option><option value="AUD">AUD — $</option><option value="MXN">MXN — $</option>
+              </select>
+            </label>
+            <div class="check-row"><label class="check"><input type="checkbox" id="setCelebrate" /> Celebrate each sale with a burst of dollar bills</label><button type="button" class="linklike" id="btnCelebrateTest">Preview</button></div>
+            <div class="logo-row">
+              <div class="logo-preview" id="logoPreview"><span class="muted small">No logo</span></div>
+              <div>
+                <button class="btn btn-ghost" id="btnLogoUpload" type="button">Upload PNG logo</button>
+                <button class="btn btn-ghost" id="btnLogoRemove" type="button">Remove</button>
+                <p class="muted small">Square or wide PNG, transparent background recommended. Max 1&nbsp;MB.</p>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Inventory color coding</h3>
+            <label class="field"><span>“Aging” after (days listed)</span><input type="number" id="setAging" min="1" /></label>
+            <label class="field"><span>“Stale” after (days listed)</span><input type="number" id="setStale" min="1" /></label>
+            <p class="muted small">Days Active = Date Sold (or today, if unsold) − Date Posted.</p>
+            <h3 class="mt">Lists</h3>
+            <label class="field"><span>Categories (comma separated)</span><textarea id="setCategories" rows="2"></textarea></label>
+            <p class="muted small">Platforms (fees, shipping, links) are managed on the <button type="button" class="linklike" data-goto="platforms">Platforms tab</button>.</p>
+            <label class="field"><span>Statuses (comma separated — “available” and “sold” are required)</span><textarea id="setStatuses" rows="2"></textarea></label>
+            <label class="field"><span>Expense categories (comma separated)</span><textarea id="setExpCats" rows="2"></textarea></label>
+          </div>
+          <div class="card">
+            <h3>Taxes</h3>
+            <label class="field"><span>Estimated income tax rate (%)</span><input type="number" id="setIncomeTax" step="0.1" min="0" /></label>
+            <label class="field"><span>Self-employment tax rate (%)</span><input type="number" id="setSETax" step="0.1" min="0" /></label>
+            <label class="field"><span>Sales tax rate you collect (%) — leave 0 if marketplaces collect it</span><input type="number" id="setSalesTax" step="0.01" min="0" /></label>
+            <p class="muted small">These are estimates for planning only — confirm actual liability with a tax professional.</p>
+            <h3 class="mt">Security</h3>
+            <label class="field"><span>Auto-lock after inactivity (minutes, 0 = never)</span><input type="number" id="setAutoLock" min="0" /></label>
+            <button class="btn btn-ghost" id="btnChangePass" type="button">Change password…</button>
+            <h3 class="mt">Forgot-password help</h3>
+            <p class="muted small" id="recStatus"></p>
+            <div class="btn-row"><button class="btn btn-sm" id="btnRecNew" type="button">Set up reset questions</button></div>
+            <label class="field"><span>Password hint (optional — shown on the lock screen; never the password itself)</span><input id="setHint" maxlength="120"></label>
+          </div>
+          <div class="card">
+            <h3>Selling plan (price drops)</h3>
+            <p class="muted small">Items due for a drop appear in the Action Center. Prices never go below an item’s “lowest acceptable price”.</p>
+            <div id="mdSteps"></div>
+            <button type="button" class="btn btn-sm btn-ghost" id="mdAddStep">+ Add a step</button>
+            <div class="form-grid" style="margin-top:12px">
+              <label class="field"><span>Days between drops (at least)</span><input id="mdGap" inputmode="numeric"></label>
+              <label class="field"><span>Rounding</span><select id="mdRound"><option value="none">Exact cents</option><option value="whole">Whole dollars</option><option value="99">.99 endings</option></select></label>
+              <label class="field"><span>Remind to refresh/relist after (days)</span><input id="mdRelist" inputmode="numeric"></label>
+              <label class="field"><span>“Decide” items listed longer than (days)</span><input id="mdDecide" inputmode="numeric"></label>
+              <label class="field"><span>Deep discount (%)</span><input id="mdDeep" inputmode="decimal"></label>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Listing templates</h3>
+            <p class="muted small">Used for the copy-ready title and description in each item. Placeholders: {name} {brand} {size} {color} {condition} {measurements} {weight} {category} {price} {sku} {notes}. Lines whose placeholders are all empty are left out.</p>
+            <label class="field"><span>Title</span><input id="tplTitle"></label>
+            <label class="field"><span>Description</span><textarea id="tplDesc" rows="7"></textarea></label>
+            <label class="field"><span>Condition choices (comma separated)</span><input id="setConditions"></label>
+            <button type="button" class="btn btn-sm btn-ghost" id="tplReset">Reset templates</button>
+          </div>
+          <div class="card">
+            <h3>Monthly goals</h3>
+            <div class="form-grid g3">
+              <label class="field"><span>Gross sales ($)</span><input id="goalSales" inputmode="decimal" placeholder="e.g. 500"></label>
+              <label class="field"><span>Net profit ($)</span><input id="goalProfit" inputmode="decimal" placeholder="e.g. 300"></label>
+              <label class="field"><span>Items sold</span><input id="goalItems" inputmode="numeric" placeholder="e.g. 20"></label>
+            </div>
+            <h3 class="mt">Mileage rates (IRS standard, business)</h3>
+            <p class="muted small">2026: 72.5¢ through June 30, 76¢ from July 1 (IRS Announcement 2026-11). Add next year’s rate when the IRS publishes it.</p>
+            <div id="mileRates"></div>
+            <button type="button" class="btn btn-sm btn-ghost" id="mileAddRate">+ Add a rate</button>
+            <h3 class="mt">Reminders</h3>
+            <div class="form-grid">
+              <label class="field"><span>Estimated-tax reminder (days before due)</span><input id="setTaxRemind" inputmode="numeric"></label>
+              <label class="field"><span>Backup reminder (every N days, 0 = off)</span><input id="setBackupRemind" inputmode="numeric"></label>
+            </div>
+            <h3 class="mt">Labels</h3>
+            <label class="field"><span>Label format</span><select id="setLabelFmt"></select></label>
+            <p class="muted small">Select items in Inventory → “Print labels”. Each QR code opens that item when scanned with a phone camera.</p>
+          </div>
+          <div class="card">
+            <h3>Data &amp; backups</h3>
+            <p class="muted small">Your data lives only in this browser’s IndexedDB, encrypted with your password. Back up regularly — clearing browser data or losing your password erases it.</p>
+            <label class="check"><input type="checkbox" id="setEncryptBackup" /> Encrypt JSON backups with my password</label>
+            <label class="check"><input type="checkbox" id="setExcelPhotos" /> Include product photos in the Excel report</label>
+            <div class="btn-row">
+              <button class="btn btn-ghost" id="btnExportJson2" type="button">Export JSON backup</button>
+              <button class="btn btn-ghost" id="btnImportJson2" type="button">Import JSON backup</button>
+            </div>
+            <p class="muted small" id="lastBackup"></p>
+            <h3 class="mt">Sync across devices (Google Drive)</h3>
+            <p class="muted small">Keeps your phone and computers in step. Everything is encrypted with your app password <b>before</b> it leaves this device, and stored in a hidden app folder in your own Google Drive. Use the same app password on every device. Photos sync as smaller copies.</p>
+            <details class="howto"><summary>One-time setup (about 5 minutes)</summary>
+              <ol>
+                <li>Open <b>console.cloud.google.com</b> and create a project (any name, e.g. “Ledger”).</li>
+                <li><b>APIs &amp; Services → Library</b>: search “Google Drive API” and click <b>Enable</b>.</li>
+                <li><b>OAuth consent screen</b>: choose <b>External</b>, enter an app name and your email, add the scope <code>…/auth/drive.appdata</code>, and add your own Google account under <b>Test users</b>.</li>
+                <li><b>Credentials → Create credentials → OAuth client ID</b> → type <b>Web application</b>. Under <b>Authorized JavaScript origins</b> add <code id="syncOrigin"></code> (this site’s address).</li>
+                <li>Copy the <b>Client ID</b> into the box below and click <b>Turn on sync</b>, then sign in with Google.</li>
+                <li>On each other device: open the app, unlock with the same password, paste the same Client ID and turn on sync.</li>
+              </ol>
+            </details>
+            <label class="field"><span>Google OAuth Client ID</span><input id="syncClientId" placeholder="1234567890-abc.apps.googleusercontent.com" autocomplete="off"></label>
+            <div class="btn-row">
+              <button class="btn btn-primary btn-sm" id="btnSyncOn" type="button">Turn on sync</button>
+              <button class="btn btn-ghost btn-sm" id="btnSyncNow" type="button">Sync now</button>
+              <button class="btn btn-ghost btn-sm" id="btnSyncOff" type="button">Turn off</button>
+            </div>
+            <p class="muted small" id="syncNote"></p>
+            <h3 class="mt">Safety snapshots</h3>
+            <p class="muted small">A restore point (inventory, expenses, settings) is saved automatically before every import or restore and before you first use a new version of the app. The last 10 are kept, encrypted, on this device. Restoring one keeps photos attached.</p>
+            <div id="snapList" class="snap-list"></div>
+            <div class="btn-row"><button class="btn btn-ghost btn-sm" id="btnSnapNow" type="button">Save a snapshot now</button></div>
+            <h3 class="mt">Import from another program</h3>
+            <p class="muted small">Restore / Import JSON accepts backups from other inventory programs too. You map the old fields once, and the app remembers the format, so later imports take one click. Records imported again are updated instead of duplicated.</p>
+            <div class="btn-row">
+              <button class="btn btn-ghost" id="btnImportOther2" type="button">Import other program’s JSON</button>
+              <button class="btn btn-ghost" id="btnForgetMappings" type="button">Forget saved mappings</button>
+            </div>
+            <p class="muted small" id="importProfilesNote"></p>
+            <h3 class="mt">Danger zone</h3>
+            <button class="btn btn-danger" id="btnWipe" type="button">Erase all data on this device</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============ MODAL ============ -->
+  <div class="modal-backdrop hidden" id="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-head">
+        <h3 id="modalTitle"></h3>
+        <button class="btn btn-icon" id="modalClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="modal-body" id="modalBody"></div>
+      <footer class="modal-foot" id="modalFoot"></footer>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="popover hidden" id="colPopover"></div>
+
+  <script src="lib/exceljs.min.js" defer></script>
+  <script src="js/utils.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/charts.js" defer></script>
+  <script src="js/reports.js" defer></script>
+  <script src="js/importer.js" defer></script>
+  <script src="lib/qrcode.js" defer></script>
+  <script src="js/labels.js" defer></script>
+  <script src="js/celebrate.js" defer></script>
+  <script src="js/sync.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <script>
+    // installable app + offline support (needs https:// or localhost)
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
