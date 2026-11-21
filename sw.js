@@ -2,7 +2,7 @@
    Network-first: when online you always get the newest files (no stale updates);
    when offline the last copy is used. Your data is never stored here — it stays
    encrypted in IndexedDB. */
-const CACHE = 'ledger-shell-v2';
+const CACHE = 'ledger-shell-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/utils.js', './js/store.js', './js/charts.js', './js/reports.js', './js/importer.js', './js/labels.js', './js/celebrate.js', './js/sync.js', './js/app.js',
