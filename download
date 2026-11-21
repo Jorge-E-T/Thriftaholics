@@ -1,8 +1,0 @@
-# Never commit business data to the repo
-*.json
-!package.json
-*.xlsx
-*.xls
-*.csv
-.DS_Store
-Thumbs.db
