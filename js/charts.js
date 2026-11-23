@@ -20,8 +20,9 @@
    */
   Charts.combo = function (canvas, data, { barLabel = 'Gross sales', lineLabel = 'Profit', fmt = (n) => n } = {}) {
     const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = '100%'; canvas.style.display = 'block';  // CSS size stays fixed; only the pixel buffer scales with the screen
     const cssW = canvas.clientWidth || canvas.parentElement.clientWidth || 600;
-    const cssH = +canvas.getAttribute('height') || 260;
+    const cssH = +(canvas.dataset.h || (canvas.dataset.h = canvas.getAttribute('height'))) || 260;
     canvas.style.height = cssH + 'px';
     canvas.width = cssW * dpr; canvas.height = cssH * dpr;
     const ctx = canvas.getContext('2d');
@@ -60,6 +61,7 @@
     const slot = W / n;
     const bw = Math.min(34, slot * 0.58);
     // bars
+    const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(W / 52)))); // labels never closer than ~52px
     data.forEach((d, i) => {
       const x = pad.l + slot * i + (slot - bw) / 2;
       const y0 = y(0), y1 = y(d.bar);
@@ -67,7 +69,7 @@
       roundRect(ctx, x, Math.min(y0, y1), bw, Math.max(1, Math.abs(y0 - y1)), 4);
       ctx.fill(); ctx.globalAlpha = 1;
       ctx.fillStyle = text2; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      if (i % Math.max(1, Math.ceil(n / 13)) === 0) ctx.fillText(d.label, pad.l + slot * i + slot / 2, pad.t + H + 9);
+      if (i % every === 0) ctx.fillText(d.label, pad.l + slot * i + slot / 2, pad.t + H + 9);
     });
     // line
     ctx.strokeStyle = gold; ctx.lineWidth = 2.5; ctx.beginPath();

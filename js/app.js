@@ -115,12 +115,17 @@
     const titleKey = () => o.titleKey || (o.phoneCols && o.phoneCols[0]) || (visibleCols()[0] || {}).key;
     /** card position of each visible column: the title, then phoneCols in their listed order, two per line */
     function phoneLayout() {
-      const t = titleKey(), cols = visibleCols().filter((c) => c.key !== t && (!phoneSet || phoneSet.has(c.key)));
+      const t = titleKey(), keep = o.phoneKeep || [];
+      const cols = visibleCols().filter((c) => c.key !== t && !keep.includes(c.key) && (!phoneSet || phoneSet.has(c.key)));
       if (o.phoneCols) cols.sort((a, b) => o.phoneCols.indexOf(a.key) - o.phoneCols.indexOf(b.key));
       const m = {}; cols.forEach((c, i) => { m[c.key] = { cls: i % 2 ? 'f-b' : 'f-a', order: i }; });
-      m[t] = { cls: 'f-first', order: -1 };
+      // fields that stay visible on a closed card (e.g. status, price, SKU), in one line under the title
+      keep.filter((k) => visibleCols().some((c) => c.key === k)).forEach((k, i) => { m[k] = { cls: 'f-k f-k' + (i + 1), order: -9 + i }; });
+      m[t] = { cls: 'f-first', order: -10 };
       return m;
     }
+    const isPhone = () => window.matchMedia('(max-width: 720px)').matches;
+    const openCards = new Set();
     const photoOn = () => !!o.photo && !(o.hidden && o.hidden().includes('_photo'));
     const CAMERA = '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
     function photoCell(r) {
@@ -213,7 +218,7 @@
       }
       return h;
     }
-    function rowClass(r) { return (o.rowClass ? o.rowClass(r) : '') + (o.selection && o.selection.has(r.id) ? ' selected' : ''); }
+    function rowClass(r) { return (o.rowClass ? o.rowClass(r) : '') + (o.selection && o.selection.has(r.id) ? ' selected' : '') + (openCards.has(r.id) ? ' open' : ''); }
 
     function footHTML(rows) {
       if (!o.footer) return '';
@@ -311,6 +316,12 @@
       const act = e.target.closest('[data-act]');
       if (act) { o.actions[+act.dataset.act].fn(o.find(id)); return; }
       if (e.target.closest('a[href]')) return; // listing links open normally
+      // phones: tapping a closed card (or any card's title) opens / closes it
+      if (isPhone() && (!tr.classList.contains('open') || e.target.closest('td.f-first'))) {
+        if (openCards.has(id)) openCards.delete(id); else openCards.add(id);
+        tr.classList.toggle('open', openCards.has(id));
+        return;
+      }
       const td = e.target.closest('td.ed');
       if (td && !td.querySelector('.cell-input')) startEdit(td);
     });
@@ -592,7 +603,7 @@
   function setupInventory() {
     invGrid = createGrid({
       table: $('#invTable'),
-      columns: INV_COLS, phoneCols: ['name', 'status', 'sellingPrice', 'purchasePrice', 'listings', 'daysActive', 'dateSold', 'totalAfterFees', 'profit', 'sku', 'location'],
+      columns: INV_COLS, phoneKeep: ['status', 'sellingPrice', 'sku'], phoneCols: ['name', 'status', 'sellingPrice', 'purchasePrice', 'listings', 'daysActive', 'dateSold', 'totalAfterFees', 'profit', 'sku', 'location'],
       photo: photoConfig,
       sticky: 'name',
       rows: invFiltered,
@@ -1686,7 +1697,7 @@
   let mileGrid;
   function setupMileage() {
     mileGrid = createGrid({
-      table: $('#mileTable'), columns: MILE_COLS, titleKey: 'purpose', phoneCols: ['purpose', 'date', 'to', 'total', 'deduction', 'roundTrip'], rows: () => { const y = $('#mileYear').value; return state.mileage.filter((t) => !y || t.date.startsWith(y)); }, find: findTrip,
+      table: $('#mileTable'), columns: MILE_COLS, titleKey: 'purpose', phoneKeep: ['date', 'total', 'deduction'], phoneCols: ['purpose', 'date', 'to', 'total', 'deduction', 'roundTrip'], rows: () => { const y = $('#mileYear').value; return state.mileage.filter((t) => !y || t.date.startsWith(y)); }, find: findTrip,
       getSort: () => S().mileSort || [{ key: 'date', dir: 'desc' }], setSort: (v) => { S().mileSort = v; saveSettings(); },
       footer: true, emptyText: 'No trips yet. Log sourcing runs, post-office trips and supply runs — they’re deductible.',
       onEdit: (t, key, v) => { commit('mileage', [{ id: t.id, after: { ...U.clone(t), [key]: key === 'miles' ? (v ?? 0) : v } }], { label: 'edit trip' }); renderMileSummary(); },
@@ -1968,7 +1979,7 @@
   let ordGrid;
   function setupOrders() {
     ordGrid = createGrid({
-      table: $('#ordTable'), columns: ORD_COLS, titleKey: 'name', phoneCols: ['name', 'dateSold', 'platform', 'sellingPrice', 'totalAfterFees', 'profit', 'fees', 'daysActive'], rows: ordFiltered, find: findItem, photo: photoConfig, sticky: 'name',
+      table: $('#ordTable'), columns: ORD_COLS, titleKey: 'name', phoneKeep: ['dateSold', 'sellingPrice', 'profit'], phoneCols: ['name', 'dateSold', 'platform', 'sellingPrice', 'totalAfterFees', 'profit', 'fees', 'daysActive'], rows: ordFiltered, find: findItem, photo: photoConfig, sticky: 'name',
       getSort: () => S().ordSort || [], setSort: (s) => { S().ordSort = s; saveSettings(); },
       rowClass: () => 'r-sold', footer: true, emptyText: 'No sales yet. Click “+ Record sale” or use the ✓ button on any inventory row.',
       onEdit: (r, key, v) => { updateItem(r, { [key]: v }, 'edit sale'); renderOrderKpis(); renderCounts(); },
@@ -2023,7 +2034,7 @@
   let expGrid;
   function setupExpenses() {
     expGrid = createGrid({
-      table: $('#expTable'), columns: EXP_COLS, titleKey: 'description', phoneCols: ['description', 'date', 'category', 'amount', 'vendor', 'payment'], rows: expFiltered, find: findExp, sticky: 'date',
+      table: $('#expTable'), columns: EXP_COLS, titleKey: 'description', phoneKeep: ['date', 'category', 'amount'], phoneCols: ['description', 'date', 'category', 'amount', 'vendor', 'payment'], rows: expFiltered, find: findExp, sticky: 'date',
       getSort: () => S().expSort || [], setSort: (s) => { S().expSort = s; saveSettings(); },
       footer: true, emptyText: 'No expenses recorded. Click “+ Add expense”.',
       onEdit: (r, key, v) => {
@@ -2452,7 +2463,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.23c';
+  const APP_VERSION = '2026.11.23d';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
