@@ -77,7 +77,7 @@
         <button class="btn btn-gold" id="btnExportXlsx" type="button">
           <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM9 12l5 6m0-6l-5 6" /></svg>Excel Report
         </button>
-        <span class="sync-state hidden" id="syncState" title="Google Drive sync"></span>
+        <button type="button" class="sync-state hidden" id="syncState" title="Cloud sync"></button>
         <button class="btn btn-icon" id="btnScan" type="button" title="Scan a label (QR code or barcode)" aria-label="Scan a label">
           <svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M7 12h10"/></svg>
         </button>
@@ -426,25 +426,9 @@
               <button class="btn btn-ghost" id="btnImportJson2" type="button">Import JSON backup</button>
             </div>
             <p class="muted small" id="lastBackup"></p>
-            <h3 class="mt">Sync across devices (Google Drive)</h3>
-            <p class="muted small">Keeps your phone and computers in step. Everything is encrypted with your app password <b>before</b> it leaves this device, and stored in a hidden app folder in your own Google Drive. Use the same app password on every device. Photos sync as smaller copies.</p>
-            <details class="howto"><summary>One-time setup (about 5 minutes)</summary>
-              <ol>
-                <li>Open <b>console.cloud.google.com</b> and create a project (any name, e.g. “Ledger”).</li>
-                <li><b>APIs &amp; Services → Library</b>: search “Google Drive API” and click <b>Enable</b>.</li>
-                <li><b>OAuth consent screen</b>: choose <b>External</b>, enter an app name and your email, add the scope <code>…/auth/drive.appdata</code>, and add your own Google account under <b>Test users</b>.</li>
-                <li><b>Credentials → Create credentials → OAuth client ID</b> → type <b>Web application</b>. Under <b>Authorized JavaScript origins</b> add <code id="syncOrigin"></code> (this site’s address).</li>
-                <li>Copy the <b>Client ID</b> into the box below and click <b>Turn on sync</b>, then sign in with Google.</li>
-                <li>On each other device: open the app, unlock with the same password, paste the same Client ID and turn on sync.</li>
-              </ol>
-            </details>
-            <label class="field"><span>Google OAuth Client ID</span><input id="syncClientId" placeholder="1234567890-abc.apps.googleusercontent.com" autocomplete="off"></label>
-            <div class="btn-row">
-              <button class="btn btn-primary btn-sm" id="btnSyncOn" type="button">Turn on sync</button>
-              <button class="btn btn-ghost btn-sm" id="btnSyncNow" type="button">Sync now</button>
-              <button class="btn btn-ghost btn-sm" id="btnSyncOff" type="button">Turn off</button>
-            </div>
-            <p class="muted small" id="syncNote"></p>
+            <h3 class="mt" id="cloudTitle">☁ Cloud sync</h3>
+            <p class="muted small">Keeps every phone and computer in step within seconds. Everything is encrypted with your app password <b>before</b> it leaves this device, so the cloud only stores scrambled data. Use the same app password on every device. Photos sync as smaller copies. Setup steps are in the Cloud Sync Setup Guide.</p>
+            <div id="cloudCard"></div>
             <h3 class="mt">Safety snapshots</h3>
             <p class="muted small">A restore point (inventory, expenses, settings) is saved automatically before every import or restore and before you first use a new version of the app. The last 10 are kept, encrypted, on this device. Restoring one keeps photos attached.</p>
             <div id="snapList" class="snap-list"></div>
@@ -488,7 +472,8 @@
   <script src="lib/qrcode.js" defer></script>
   <script src="js/labels.js" defer></script>
   <script src="js/celebrate.js" defer></script>
-  <script src="js/sync.js" defer></script>
+  <script src="firebase-config.js" defer></script>
+  <script src="js/cloud-sync.js" defer></script>
   <script src="js/app.js" defer></script>
   <script>
     // installable app + offline support (needs https:// or localhost)

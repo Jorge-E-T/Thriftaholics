@@ -27,7 +27,7 @@ A private, password-protected inventory, ordering and sales tracker that runs en
 - **What sells / Profit by source:** performance by brand, size, category and source (sell-through, days to sell, profit, ROI). These are in Reports and the Excel report.
 - **Labels and scanning:** select items and choose "Print labels" (Avery 5160 or 5163 sheets, or 2×1 in and 4×6 in label printers). Each QR code links to the item, so any phone camera opens it. The scan button in the top bar reads labels in supported browsers.
 - **Phone app:** install it from the browser menu ("Add to Home Screen" or "Install app"). It works offline, and "Take photo" opens the camera.
-- **Google Drive sync (optional):** encrypted with your app password before upload. Changes merge record by record, and deletions and photos (as thumbnails) sync too. Setup steps are in Settings.
+- **Cloud sync (optional, Firebase):** every phone and computer stays in step within seconds. Each person signs in once per device with their own cloud e-mail; only e-mails listed in `firestore.rules` get in. Every record is encrypted with your app password before upload, so Firebase only stores scrambled data. Changes merge record by record (newest edit wins); deletions, photos (as smaller copies), the logo, settings and reset questions sync too. A pill in the top bar shows the status. Setup: fill in `firebase-config.js` and follow the *Cloud Sync Setup Guide*. Don't commit `firestore.rules` to a public repo (it lists your e-mails); paste it into Firebase instead.
 - **Backup reminders:** a banner appears when your last backup is older than N days.
 - **Taxes and money:**
   - Mileage log, using the IRS rate in effect on each trip's date (2026: 72.5¢, then 76¢ from July 1).
@@ -91,7 +91,10 @@ js/charts.js        Lightweight canvas charts
 js/reports.js       Calculations, Excel export and import
 js/celebrate.js     Sale celebration animation (canvas)
 js/labels.js        QR labels and camera scanning
-js/sync.js          Encrypted Google Drive sync
+js/cloud-sync.js    Encrypted Firebase cloud sync (live, per record)
+firebase-config.js  Your Firebase project's web settings (fill in once)
+firestore.rules     Security rules to paste into Firebase (not needed in the repo)
+lib/firebase/       Firebase JavaScript SDK 13.4 (compat build), vendored
 sw.js, manifest.webmanifest, icons/   Installable phone app and offline support
 lib/qrcode.js       qrcode-generator 1.4.4 (MIT)
 js/app.js           Application logic and UI
