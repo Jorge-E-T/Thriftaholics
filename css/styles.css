@@ -638,3 +638,17 @@ td.ed:hover .add-listing { color: var(--ink-3); }
 .topbar.name-hidden .brand-text { display: none; }
 .topbar.name-hidden .logo-slot img { height: 64px; max-width: min(380px, 60vw); }
 .topbar.name-hidden .logo-slot { height: 64px; max-width: min(380px, 60vw); }
+
+/* ---------- cloud sync pill + card ---------- */
+.sync-state { background: transparent; font: inherit; font-size: 12px; white-space: nowrap; }
+.sync-state.cs-ok { color: #b9f0cf; border-color: rgba(120,220,160,.55); background: rgba(46,160,96,.18); }
+.sync-state.cs-busy { color: #bfe0ff; border-color: rgba(120,180,255,.55); background: rgba(60,130,230,.18); }
+.sync-state.cs-warn { color: #ffe1a6; border-color: rgba(240,190,90,.6); background: rgba(220,160,40,.18); }
+.sync-state.cs-err { color: #ffc2bc; border-color: rgba(255,150,140,.6); background: rgba(220,70,60,.2); }
+.sync-state.cs-off { color: rgba(255,255,255,.75); }
+.cs-box { border: 1px solid var(--line, #dfe3e0); border-radius: 12px; padding: 12px 14px; margin: 8px 0 4px; background: rgba(0,0,0,.015); }
+.cs-box .field { max-width: 360px; }
+.cs-note { font-size: 13px; }
+.cs-note.cs-bad { border-color: #f0b4ad; background: #fff6f5; }
+.cs-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #9aa3a0; vertical-align: 0; }
+.cs-dot.cs-ok { background: #2e9e5e; } .cs-dot.cs-busy { background: #3b82d6; } .cs-dot.cs-warn { background: #d99a1e; } .cs-dot.cs-err { background: #d0453a; }
