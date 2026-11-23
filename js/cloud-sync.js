@@ -21,7 +21,7 @@
   let key = null, keyId = null, password = null, keyProblem = null;
   let running = false, unsubs = [], mirror = {}, ready = new Set(), offline = !navigator.onLine;
   let pending = 0, lastErr = null, lastSync = null, schedTimer = null, reconciling = false, again = false;
-  let askingKey = false, oversizeWarned = false;
+  let askingKey = false, oversizeWarned = false, lastCardMode = '';
   const decCache = new Map();
 
   /* ---------------- small helpers ---------------- */
@@ -111,7 +111,11 @@
   }
   function renderCard(st) {
     const el = document.getElementById('cloudCard');
-    if (!el || el.contains(document.activeElement) && el.querySelector('input:focus')) { if (el) updateCardStatus(st); return; }
+    if (!el) return;
+    const mode = !cfgOk ? 'nocfg' : loadErr ? 'err' : user ? 'in:' + user.email : 'out';
+    // don't wipe what someone is typing — but always redraw when the card's state changes (e.g. after signing in)
+    if (mode === lastCardMode && el.querySelector('input:focus')) { updateCardStatus(st); return; }
+    lastCardMode = mode;
     if (!cfgOk) {
       el.innerHTML = `<div class="cs-box cs-note"><b>Cloud sync is not set up.</b> firebase-config.js still has PASTE_ values or wasn’t uploaded. Follow the Cloud Sync Setup Guide, Parts 1–6.</div>`;
       return;
@@ -149,8 +153,10 @@
         const err = document.getElementById('csErr');
         if (!email || !pw) { err.textContent = 'Enter the cloud e-mail and password.'; return; }
         t.disabled = true; t.textContent = 'Signing in…'; err.textContent = '';
-        try { await adapter.signIn(email, pw); }
+        const slow = setTimeout(() => { if (!user) err.textContent = 'Still waiting for Firebase… Check the internet connection, and turn off any ad or content blocker for this site.'; }, 15000);
+        try { await adapter.signIn(email, pw); if (document.activeElement) document.activeElement.blur(); render(); }
         catch (x) { err.textContent = friendly(x); t.disabled = false; t.textContent = '☁ Sign in to cloud'; }
+        finally { clearTimeout(slow); }
       }
       if (t.id === 'csForgot') {
         const email = (document.getElementById('csEmail').value || '').trim();

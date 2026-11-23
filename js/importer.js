@@ -263,8 +263,38 @@
   }
 
   /* ---------- the import dialog ---------- */
+  /* The old Thriftaholicss_ program (IndexedDB "AndysShopDB": inventory + balanceSheet + categories),
+     as saved by its Backup button or by Thriftaholics Data Rescue. Reshape it so the right fields line up:
+     the sale price wins over the list price, and only balance-sheet expenses you typed yourself become
+     expenses (the program added sale / cost-of-goods / fee lines automatically for every sale). */
+  function oldThriftFormat(root) {
+    const idb = root && root.indexedDB;
+    if (!idb || !Array.isArray(idb.inventory) || !Array.isArray(idb.balanceSheet)) return root;
+    const items = idb.inventory.map((it) => {
+      const o = { ...it };
+      const sold = String(it.status || '').toLowerCase() === 'sold';
+      o.sellingPrice = sold && it.soldPrice ? it.soldPrice : it.price;
+      if (sold && it.soldPrice && it.price && +it.soldPrice !== +it.price) o.listPrice = it.price;
+      delete o.price; delete o.soldPrice;
+      if (Array.isArray(it.locations) && it.locations.length) o.location = it.locations.join(', ');
+      if (Array.isArray(it.purchaseDates) && it.purchaseDates.length) o.purchaseDate = it.purchaseDates[0];
+      if (it.feeBreakdown && +it.feeBreakdown.shipping) o.shippingCost = +it.feeBreakdown.shipping;
+      delete o.locations; delete o.purchaseDates; delete o.feeBreakdown; delete o.daysPosted;
+      return o;
+    });
+    const expenses = idb.balanceSheet.filter((e) => e && e.type === 'credit' && !e.relatedItemId)
+      .map((e) => ({ id: e.id, date: e.date, description: e.description, amount: e.amount, category: 'Supplies' }));
+    const out = { 'Inventory items (old Thriftaholicss_ program)': items };
+    if (expenses.length) out['Expenses you entered (old balance sheet)'] = expenses;
+    return out;
+  }
+
   async function run(root, fileName, ctx) {
+    root = oldThriftFormat(root);
     const lists = findLists(root);
+    // inventory-looking lists first, then the biggest
+    const invLike = (l) => /inventor|items?\b|product/i.test(l.path) ? 1 : 0;
+    lists.sort((a, b) => invLike(b) - invLike(a) || b.records.length - a.records.length);
     if (!lists.length) { U.toast('No list of records was found in that JSON file.', 'err'); return; }
     const S = ctx.settings();
     S.importProfiles = S.importProfiles || {};
