@@ -738,3 +738,44 @@ td.ed:hover .add-listing { color: var(--ink-3); }
   .legend { font-size: 12px; gap: 4px 12px; }
 }
 @media (max-width: 720px) { .act-tools, .act-tools > * { flex-wrap: wrap; } .act-tools .btn { white-space: normal; } }
+
+/* ---------- phones: collapsible cards in a scrolling window ---------- */
+@media (max-width: 720px) {
+  .table-wrap {
+    max-height: calc(100dvh - 170px) !important; overflow-y: auto; overflow-x: hidden;
+    border: 1px solid var(--line); border-radius: 14px; background: #ebe8e0; padding: 0 8px 8px; overscroll-behavior: contain;
+  }
+  .grid thead { position: sticky; top: 0; z-index: 5; background: #ebe8e0; padding-top: 8px; }
+  .grid tfoot { position: sticky; bottom: -8px; z-index: 5; }
+
+  .grid tbody tr { grid-template-columns: 30px 58px repeat(6, minmax(0, 1fr)); padding: 9px 10px 9px 8px; margin-bottom: 8px; row-gap: 3px; cursor: pointer; }
+  .grid.m-nophoto tbody tr { grid-template-columns: 30px 0 repeat(6, minmax(0, 1fr)); }
+  .grid.m-nosel tbody tr { grid-template-columns: 0 58px repeat(6, minmax(0, 1fr)); }
+  .grid.m-nosel.m-nophoto tbody tr { grid-template-columns: 0 0 repeat(6, minmax(0, 1fr)); }
+  .grid tbody td.col-photo { grid-row: 1 / span 2; padding-right: 10px; }
+  .grid tbody td.col-photo .thumb { width: 48px; height: 48px; }
+  .grid tbody td.col-photo .thumb span { display: none; }
+  .grid tbody td.f-first { grid-column: 3 / -1; order: var(--o); font-size: 14.5px; padding-right: 22px; position: relative; }
+  .grid tbody td.f-first::after { content: "▾"; position: absolute; right: 0; top: 2px; font-size: 14px; color: var(--text-3, #8a948f); transition: transform .15s; }
+  .grid tbody tr.open td.f-first::after { transform: rotate(180deg); }
+  .grid tbody td.f-first .cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grid tbody tr.open td.f-first .cell { white-space: normal; }
+  .grid tbody td.f-k { order: var(--o); font-size: 13px; }
+  .grid tbody td.f-k1 { grid-column: 3 / 5; } .grid tbody td.f-k2 { grid-column: 5 / 7; } .grid tbody td.f-k3 { grid-column: 7 / 9; }
+  .grid tbody td.f-k .cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grid tbody td.f-a { grid-column: 3 / 6; } .grid tbody td.f-b { grid-column: 6 / 9; }
+  /* closed card: only title + the kept fields */
+  .grid tbody tr:not(.open) td.f-a, .grid tbody tr:not(.open) td.f-b, .grid tbody tr:not(.open) td.col-actions { display: none; }
+  .grid tbody tr.open td.f-k::before {
+    content: attr(data-label); display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-3, #8a948f); font-weight: 600; padding: 0 2px; margin-bottom: 1px;
+  }
+  .grid tbody tr.open td.col-photo { grid-row: 1 / span 4; }
+  .grid tbody tr.open td.col-photo .thumb { width: 58px; height: 58px; }
+  .grid tbody tr.open td.f-a, .grid tbody tr.open td.f-b { margin-top: 4px; }
+  .grid tbody td.col-actions { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .grid tbody tr.open td.col-photo .thumb { width: 48px; height: 48px; }
+  .grid tfoot { position: static; }
+}
