@@ -110,6 +110,17 @@
     let rowsCache = [];
 
     const visibleCols = () => o.columns.filter((c) => !(o.hidden && o.hidden().includes(c.key)));
+    /* phones show each row as a card: a title, then the most useful fields (o.phoneCols) in two columns */
+    const phoneSet = o.phoneCols ? new Set(o.phoneCols) : null;
+    const titleKey = () => o.titleKey || (o.phoneCols && o.phoneCols[0]) || (visibleCols()[0] || {}).key;
+    /** card position of each visible column: the title, then phoneCols in their listed order, two per line */
+    function phoneLayout() {
+      const t = titleKey(), cols = visibleCols().filter((c) => c.key !== t && (!phoneSet || phoneSet.has(c.key)));
+      if (o.phoneCols) cols.sort((a, b) => o.phoneCols.indexOf(a.key) - o.phoneCols.indexOf(b.key));
+      const m = {}; cols.forEach((c, i) => { m[c.key] = { cls: i % 2 ? 'f-b' : 'f-a', order: i }; });
+      m[t] = { cls: 'f-first', order: -1 };
+      return m;
+    }
     const photoOn = () => !!o.photo && !(o.hidden && o.hidden().includes('_photo'));
     const CAMERA = '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
     function photoCell(r) {
@@ -179,7 +190,7 @@
         const si = sort.findIndex((s) => s.key === c.key);
         const ind = si >= 0 ? `${sort[si].dir === 'asc' ? '▲' : '▼'}${sort.length > 1 ? `<sup>${si + 1}</sup>` : ''}` : '';
         const isNum = ['money', 'int', 'pct', 'dec'].includes(c.type);
-        h += `<th class="${isNum ? 'num' : ''} ${c.computed ? 'computed' : ''}" style="${c.width ? `min-width:${c.width}px` : ''}" data-sort="${c.key}" title="${c.computed ? 'Calculated' : 'Click to sort · Shift+click to add'}"><div class="th">${esc(c.label)}<span class="sort">${ind}</span></div></th>`;
+        h += `<th class="${isNum ? 'num' : ''} ${c.computed ? 'computed' : ''} ${phoneSet && !phoneSet.has(c.key) && c.key !== titleKey() ? 'm-off' : ''}" style="${c.width ? `min-width:${c.width}px` : ''}" data-sort="${c.key}" title="${c.computed ? 'Calculated' : 'Click to sort · Shift+click to add'}"><div class="th">${esc(c.label)}<span class="sort">${ind}</span></div></th>`;
       });
       if (o.actions) h += '<th class="col-actions nosort"><div class="th"></div></th>';
       return h + '</tr>';
@@ -189,10 +200,12 @@
       let h = '';
       if (o.selectable) h += `<td class="col-check"><input type="checkbox" data-check ${o.selection.has(r.id) ? 'checked' : ''} aria-label="Select row"></td>`;
       if (photoOn()) h += photoCell(r);
+      const pl = phoneLayout();
       cols.forEach((c) => {
         const isNum = ['money', 'int', 'pct', 'dec'].includes(c.type);
         const ro = c.computed || c.readonly;
-        h += `<td class="${isNum ? 'num' : ''} ${ro ? 'ro' : 'ed'}" data-key="${c.key}"><span class="cell" title="${ro ? '' : 'Click to edit'}">${display(c, r)}</span></td>`;
+        const p = pl[c.key] || { cls: 'm-off', order: 99 };
+        h += `<td class="${isNum ? 'num' : ''} ${ro ? 'ro' : 'ed'} ${p.cls}" style="--o:${p.order}" data-key="${c.key}" data-label="${esc(c.label)}"><span class="cell" title="${ro ? '' : 'Click to edit'}">${display(c, r)}</span></td>`;
       });
       if (o.actions) {
         h += '<td class="col-actions"><div class="row-actions">' + o.actions.filter((a) => !a.show || a.show(r)).map((a, i) =>
@@ -218,7 +231,7 @@
           content = c.type === 'money' ? U.money0(t) : c.type === 'dec' ? (+t || 0).toFixed(1) : c.type === 'int' ? (t === null ? '—' : (c.total === 'avg' ? 'avg ' : '') + U.int(t)) : U.int(t);
           if (c.totalLabel) content = `<span class="muted small" style="font-weight:500">${c.totalLabel}</span><br>${content}`;
         } else if (!labelPlaced) { content = `Totals · ${rows.length} row${rows.length === 1 ? '' : 's'}`; labelPlaced = true; }
-        h += `<td class="${isNum ? 'num' : ''}">${content}</td>`;
+        h += `<td class="${isNum ? 'num' : ''} ${c.total && !c.totalLabel ? 'ft-l' : ''}" ${c.total && !c.totalLabel ? `data-label="${esc(c.label)}"` : ''}>${content}</td>`;
       });
       if (o.actions) h += '<td></td>';
       return h + '</tr>';
@@ -226,6 +239,7 @@
 
     function render() {
       rowsCache = sorted(o.rows());
+      table.classList.toggle('m-nophoto', !photoOn()); table.classList.toggle('m-nosel', !o.selectable);
       thead.innerHTML = headHTML();
       if (!rowsCache.length) {
         const span = visibleCols().length + (o.selectable ? 1 : 0) + (photoOn() ? 1 : 0) + (o.actions ? 1 : 0);
@@ -578,7 +592,7 @@
   function setupInventory() {
     invGrid = createGrid({
       table: $('#invTable'),
-      columns: INV_COLS,
+      columns: INV_COLS, phoneCols: ['name', 'status', 'sellingPrice', 'purchasePrice', 'listings', 'daysActive', 'dateSold', 'totalAfterFees', 'profit', 'sku', 'location'],
       photo: photoConfig,
       sticky: 'name',
       rows: invFiltered,
@@ -1672,7 +1686,7 @@
   let mileGrid;
   function setupMileage() {
     mileGrid = createGrid({
-      table: $('#mileTable'), columns: MILE_COLS, rows: () => { const y = $('#mileYear').value; return state.mileage.filter((t) => !y || t.date.startsWith(y)); }, find: findTrip,
+      table: $('#mileTable'), columns: MILE_COLS, titleKey: 'purpose', phoneCols: ['purpose', 'date', 'to', 'total', 'deduction', 'roundTrip'], rows: () => { const y = $('#mileYear').value; return state.mileage.filter((t) => !y || t.date.startsWith(y)); }, find: findTrip,
       getSort: () => S().mileSort || [{ key: 'date', dir: 'desc' }], setSort: (v) => { S().mileSort = v; saveSettings(); },
       footer: true, emptyText: 'No trips yet. Log sourcing runs, post-office trips and supply runs — they’re deductible.',
       onEdit: (t, key, v) => { commit('mileage', [{ id: t.id, after: { ...U.clone(t), [key]: key === 'miles' ? (v ?? 0) : v } }], { label: 'edit trip' }); renderMileSummary(); },
@@ -1769,7 +1783,7 @@
     const msgs = [];
     const lb = state.meta.lastBackup, days = lb ? daysSince(lb.slice(0, 10)) : null, every = +S().backupReminderDays || 0;
     if (every && state.items.length && (days === null || days >= every) && !(S().backupSnoozeUntil && S().backupSnoozeUntil > U.todayISO()))
-      msgs.push(`<span>💾 ${days === null ? 'You haven’t made a backup yet.' : `Your last backup was ${days} days ago.`} Data lives only in this browser${S().sync.enabled ? ' (plus Drive sync)' : ''}.</span><button class="btn btn-sm btn-gold" data-ban="backup">Back up now</button><button class="btn btn-sm btn-ghost" data-ban="snooze">Remind me tomorrow</button>`);
+      msgs.push(`<span>💾 ${days === null ? 'You haven’t made a backup yet.' : `Your last backup was ${days} days ago.`} ${window.Sync && Sync.signedIn() ? 'Your data is also synced to the cloud, but a backup file is your safety net.' : 'Data lives only in this browser.'}</span><button class="btn btn-sm btn-gold" data-ban="backup">Back up now</button><button class="btn btn-sm btn-ghost" data-ban="snooze">Remind me tomorrow</button>`);
     if (state.meta.hasRecovery === false && state.items.length)
       msgs.push(`<span>🔑 Set up <b>password reset questions</b> so you can get back in if you ever forget your password.</span><button class="btn btn-sm btn-gold" data-ban="recovery">Set up now</button>`);
     const tax = upcomingTax();
@@ -1954,7 +1968,7 @@
   let ordGrid;
   function setupOrders() {
     ordGrid = createGrid({
-      table: $('#ordTable'), columns: ORD_COLS, rows: ordFiltered, find: findItem, photo: photoConfig, sticky: 'name',
+      table: $('#ordTable'), columns: ORD_COLS, titleKey: 'name', phoneCols: ['name', 'dateSold', 'platform', 'sellingPrice', 'totalAfterFees', 'profit', 'fees', 'daysActive'], rows: ordFiltered, find: findItem, photo: photoConfig, sticky: 'name',
       getSort: () => S().ordSort || [], setSort: (s) => { S().ordSort = s; saveSettings(); },
       rowClass: () => 'r-sold', footer: true, emptyText: 'No sales yet. Click “+ Record sale” or use the ✓ button on any inventory row.',
       onEdit: (r, key, v) => { updateItem(r, { [key]: v }, 'edit sale'); renderOrderKpis(); renderCounts(); },
@@ -2009,7 +2023,7 @@
   let expGrid;
   function setupExpenses() {
     expGrid = createGrid({
-      table: $('#expTable'), columns: EXP_COLS, rows: expFiltered, find: findExp, sticky: 'date',
+      table: $('#expTable'), columns: EXP_COLS, titleKey: 'description', phoneCols: ['description', 'date', 'category', 'amount', 'vendor', 'payment'], rows: expFiltered, find: findExp, sticky: 'date',
       getSort: () => S().expSort || [], setSort: (s) => { S().expSort = s; saveSettings(); },
       footer: true, emptyText: 'No expenses recorded. Click “+ Add expense”.',
       onEdit: (r, key, v) => {
@@ -2438,7 +2452,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.23b';
+  const APP_VERSION = '2026.11.23c';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
