@@ -76,6 +76,12 @@
         const r = await (await gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: multipart })).json();
         fileId = r.id;
       }
+    },
+    async remove(interactive) {
+      const q = encodeURIComponent(`name='${FILE}'`);
+      const list = await (await gfetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`, {}, interactive)).json();
+      for (const f of list.files || []) await gfetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, { method: 'DELETE' });
+      fileId = null;
     }
   };
   const transport = () => global.__syncMock || Drive;
@@ -200,6 +206,11 @@
       key = null; token = null;
       await getToken(true).catch((e) => { if (!global.__syncMock) throw e; });
       await syncNow({ interactive: true, password });
+    },
+    /** Delete the encrypted copy in Google Drive (used when erasing test data). */
+    async deleteRemote() {
+      const t = transport();
+      if (t.remove) await t.remove(true); else if (t.write) await t.write(null);
     },
     disable() { S().sync = { ...(S().sync || {}), enabled: false }; api.saveSettingsQuiet(); Sync.lock(); },
     _merge: merge, _core: core

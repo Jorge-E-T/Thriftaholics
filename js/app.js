@@ -928,14 +928,14 @@
       const ph = await U.processImage(file);
       await Store.putPhoto(item.id, ph);
       state.thumbs[item.id] = { thumb: ph.thumb, w: ph.w, h: ph.h };
-      refreshPhotoRow(item.id);
+      refreshPhotoRow(item.id); if (window.Sync) Sync.changed();
       U.toast('Photo saved' + (item.name ? ' for “' + item.name + '”' : ''), 'ok');
     } catch (e) { console.error(e); U.toast(e.message, 'err'); } finally { saving(-1); }
   }
   async function removePhoto(id) {
     delete state.thumbs[id];
     await persist(() => Store.deletePhotos([id]));
-    refreshPhotoRow(id);
+    refreshPhotoRow(id); if (window.Sync) Sync.changed();
   }
   function attachDropZone(el, onFile) {
     const has = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
@@ -1822,7 +1822,7 @@
   }
 
   /* =========================================================
-     SYNC BRIDGE (js/sync.js)
+     SYNC BRIDGE (js/cloud-sync.js)
      ========================================================= */
   let syncApplying = false;
   const syncApi = {
@@ -1851,44 +1851,77 @@
       } finally { syncApplying = false; }
     }
   };
+  /** Changes that arrived from the cloud: put them into this device without triggering another upload. */
+  syncApi.applyCloud = async (a, password) => {
+    syncApplying = true;
+    try {
+      if (a.wipe) {
+        const ids = { items: state.items.map((x) => x.id), expenses: state.expenses.map((x) => x.id) };
+        state.items = []; state.expenses = []; state.mileage = []; state.meta.tombstones = {}; state.selection.clear();
+        const photoIds = Object.keys(state.thumbs); state.thumbs = {};
+        await Store.deleteMany('items', ids.items); await Store.deleteMany('expenses', ids.expenses); await Store.putVault('mileage', []);
+        if (photoIds.length) await Store.deletePhotos(photoIds);
+        U.toast('The cloud copy was erased on another device, so this device was cleared too. A safety snapshot was saved first.', 'ok');
+      }
+      const t = (state.meta.tombstones ||= {});
+      for (const kind of ['items', 'expenses', 'mileage']) {
+        const k = a[kind]; if (!k || !(k.put.length || k.del.length || k.untomb.length)) continue;
+        const list = kind === 'items' ? state.items : kind === 'expenses' ? state.expenses : state.mileage;
+        const norm = kind === 'items' ? normalizeItem : kind === 'expenses' ? normalizeExpense : normalizeTrip;
+        t[kind] = { ...(t[kind] || {}) };
+        const puts = k.put.map((r) => { const rec = norm(r); rec.updatedAt = r.updatedAt; return rec; });
+        puts.forEach((rec) => { const i = list.findIndex((x) => x.id === rec.id); if (i >= 0) list[i] = rec; else list.push(rec); delete t[kind][rec.id]; });
+        k.del.forEach(({ id, t: ts }) => { const i = list.findIndex((x) => x.id === id); if (i >= 0) list.splice(i, 1); if (ts) t[kind][id] = ts; state.selection.delete(id); });
+        k.untomb.forEach((id) => { delete t[kind][id]; });
+        if (kind === 'mileage') await Store.putVault('mileage', state.mileage);
+        else { if (puts.length) await Store.putMany(kind, puts); if (k.del.length) await Store.deleteMany(kind, k.del.map((d) => d.id)); }
+      }
+      await Store.putVault('tombstones', t);
+      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
+      if ('logo' in a) { state.logo = a.logo || null; await Store.putVault('logo', state.logo); }
+      for (const p of a.photos.put) { await Store.putPhoto(p.id, { thumb: p.thumb, full: p.thumb, w: p.w, h: p.h }); state.thumbs[p.id] = { thumb: p.thumb, w: p.w, h: p.h }; }
+      if (a.photos.del.length) { a.photos.del.forEach((id) => delete state.thumbs[id]); await Store.deletePhotos(a.photos.del); }
+      if (a.recovery && password) await syncApi.adoptRecovery(a.recovery, password);
+      state.undo = [];
+      applySettingsToUI(); renderLogo(); renderAll();
+    } finally { syncApplying = false; }
+  };
+  /** First sign-in on a device that already has data. */
+  syncApi.firstConnect = async ({ cloud, local }) => {
+    const r = await U.modal({
+      title: 'This device already has data',
+      body: `<p style="margin-top:0">The cloud already has <b>${cloud.items} items</b> and <b>${cloud.expenses} expenses</b>. This device has <b>${local.items} items</b> and <b>${local.expenses} expenses</b>.</p>
+        <p><b>Use the cloud data (recommended)</b>: this device becomes an exact copy of the cloud. A safety snapshot of this device is saved first.</p>
+        <p><b>Combine both</b>: anything only on this device is uploaded; for records on both, the most recently edited version wins.</p>`,
+      buttons: [{ label: 'Cancel (sign out)', value: null, cls: 'btn-ghost' }, { label: 'Combine both', value: 'combine' }, { label: 'Use the cloud data', value: 'cloud', cls: 'btn-primary' }]
+    });
+    return r || null;
+  };
+  syncApi.confirmMassDelete = async (what) => {
+    const r = await U.modal({
+      title: 'Delete everywhere?',
+      body: `<p style="margin-top:0">This change would delete <b>${U.esc(what)}</b> from the cloud and from every device. That usually happens after restoring an older backup.</p><p>Choose <b>No, bring them back</b> to restore them on this device from the cloud instead.</p>`,
+      buttons: [{ label: 'No, bring them back', value: 'no', cls: 'btn-ghost' }, { label: 'Yes, delete everywhere', value: 'yes', cls: 'btn-danger' }]
+    });
+    return r === 'yes';
+  };
+  syncApi.openCloud = () => { showView('settings'); setTimeout(() => { const c = document.getElementById('cloudCard'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60); };
   syncApi.adoptRecovery = async (qa, password) => { await Store.setupQuestions(password, qa.questions, qa.answers, true); state.meta.hasRecovery = true; renderBanner(); };
   /** The Drive copy was locked with a different password (it was changed on another device). */
   syncApi.passwordMismatch = async (knownCurrent) => {
     const body = document.createElement('div');
-    body.innerHTML = `<p style="margin-top:0">Your app password was changed on another device, so the synced copy is locked with the <b>new</b> password. Enter it to update this device too.</p>
-      <label class="field"><span>New password (the one you set on the other device)</span><input type="password" data-new></label>
+    body.innerHTML = `<p style="margin-top:0">The cloud copy is locked with a different app password — it was set or changed on your other device. Enter that password and this device will use it too.</p>
+      <label class="field"><span>App password used on your other device</span><input type="password" data-new></label>
       ${knownCurrent ? '' : '<label class="field"><span>This device’s current password</span><input type="password" data-cur></label>'}
       <p class="lock-error" data-err></p>`;
-    const r = await U.modal({ title: 'Password changed on another device', body, buttons: [{ label: 'Later', value: null, cls: 'btn-ghost' }, { label: 'Update this device', cls: 'btn-primary', value: (b) => ({ nw: b.querySelector('[data-new]').value, cur: knownCurrent || b.querySelector('[data-cur]').value }) }] });
+    const r = await U.modal({ title: 'Different app password in the cloud', body, buttons: [{ label: 'Later', value: null, cls: 'btn-ghost' }, { label: 'Update this device', cls: 'btn-primary', value: (b) => ({ nw: b.querySelector('[data-new]').value, cur: knownCurrent || b.querySelector('[data-cur]').value }) }] });
     if (!r || !r.nw) return null;
     if (!(await Store.changePassword(r.cur, r.nw))) { U.toast('This device’s current password was wrong.', 'err'); return null; }
     U.toast('Password updated on this device', 'ok');
     return r.nw;
   };
-  function renderSyncSettings() {
-    const sy = S().sync || {};
-    $('#syncClientId').value = sy.clientId || '';
-    $('#syncOrigin').textContent = location.origin;
-    $('#btnSyncOn').classList.toggle('hidden', !!sy.enabled);
-    $('#btnSyncNow').classList.toggle('hidden', !sy.enabled);
-    $('#btnSyncOff').classList.toggle('hidden', !sy.enabled);
-    $('#syncNote').textContent = sy.enabled ? `Sync is on${sy.lastSync ? ' · last synced ' + new Date(sy.lastSync).toLocaleString() : ''}.` : 'Sync is off — data stays only in this browser.';
-  }
-  function setupSyncSettings() {
-    Sync.init(syncApi);
-    $('#syncClientId').addEventListener('change', (e) => { S().sync = { ...(S().sync || {}), clientId: e.target.value.trim() }; saveSettings(); });
-    $('#btnSyncOn').onclick = async () => {
-      const id = $('#syncClientId').value.trim();
-      if (!/\.apps\.googleusercontent\.com$/.test(id) && !window.__syncMock) { U.toast('Paste the OAuth Client ID first (it ends in .apps.googleusercontent.com).', 'err'); $('#syncClientId').focus(); return; }
-      const pw = await U.prompt('Turn on sync', 'Your app password (encrypts the Drive copy — use the same password on every device)', { type: 'password', okLabel: 'Turn on' });
-      if (!pw) return;
-      if (!(await Store.verify(pw))) { U.toast('That isn’t your app password.', 'err'); return; }
-      try { await Sync.enable(id, pw); renderSyncSettings(); U.toast('Sync is on', 'ok'); }
-      catch (e) { S().sync.enabled = false; saveSettings(); renderSyncSettings(); U.toast('Could not turn on sync: ' + e.message, 'err'); }
-    };
-    $('#btnSyncNow').onclick = () => Sync.now({ interactive: true }).then(renderSyncSettings);
-    $('#btnSyncOff').onclick = async () => { if (await U.confirm('Turn off sync', 'Stop syncing this device? Your data stays here; the encrypted copy stays in your Google Drive.', 'Turn off')) { Sync.disable(); renderSyncSettings(); } };
-  }
+  function renderSyncSettings() { /* the Cloud sync card renders itself (js/cloud-sync.js) */ }
+  function setupSyncSettings() { Sync.init(syncApi); }
 
   /* =========================================================
      ORDERS VIEW
@@ -2208,9 +2241,11 @@
       await takeSnapshot(`Before restoring ${file.name} (${choice})`);
       const trips = (data.mileage || []).map(normalizeTrip);
       if (choice === 'replace') {
+        const prev = { items: state.items, expenses: state.expenses, mileage: state.mileage };
         state.items = items; state.expenses = expenses; state.mileage = trips;
-        if (data.settings) state.settings = { ...U.clone(DEFAULT_SETTINGS), ...data.settings };
+        if (data.settings) state.settings = { ...U.clone(DEFAULT_SETTINGS), ...data.settings, sync: S().sync };
         if (data.logo !== undefined) state.logo = data.logo || null;
+        markReplaced(prev);
       } else {
         const mergeInto = (list, incoming) => { const map = new Map(list.map((x) => [x.id, x])); incoming.forEach((x) => map.set(x.id, x)); return [...map.values()]; };
         state.items = mergeInto(state.items, items); state.expenses = mergeInto(state.expenses, expenses); state.mileage = mergeInto(state.mileage, trips);
@@ -2226,6 +2261,7 @@
       const moved = migrateListings();
       applySettingsToUI(); renderAll();
       U.toast(`Restored ${items.length} items and ${expenses.length} expenses (${choice})`, 'ok');
+      if (window.Sync) Sync.changed();
     } catch (e) { console.error(e); U.toast('Import failed: ' + e.message, 'err'); }
   }
   /** Used by the importer for other programs' JSON (js/importer.js). */
@@ -2265,7 +2301,7 @@
           const ph = await U.processImage(new File([blob], 'photo', { type: blob.type || 'image/jpeg' }));
           await Store.putPhoto(job.id, ph);
           state.thumbs[job.id] = { thumb: ph.thumb, w: ph.w, h: ph.h };
-          res.photos++;
+          res.photos++; if (window.Sync) Sync.changed();
         } catch (_) { /* unreadable image data — skip */ }
       }
       saveSettings();
@@ -2402,7 +2438,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.21b';
+  const APP_VERSION = '2026.11.23b';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -2435,12 +2471,29 @@
     }
     if (!(await U.confirm('Restore snapshot', `Restore your inventory, expenses and settings to <b>${esc(new Date(sn.at).toLocaleString())}</b> (${esc(sn.reason)})? Your current data is snapshotted first, so this can be undone the same way. Photos stay attached.`, 'Restore'))) return;
     await takeSnapshot('Before restoring snapshot from ' + new Date(sn.at).toLocaleString());
+    const prev = { items: state.items, expenses: state.expenses, mileage: state.mileage };
     state.items = sn.items.map(normalizeItem); state.expenses = sn.expenses.map(normalizeExpense); state.mileage = (sn.mileage || []).map(normalizeTrip);
-    state.settings = { ...U.clone(DEFAULT_SETTINGS), ...U.clone(sn.settings) };
+    state.settings = { ...U.clone(DEFAULT_SETTINGS), ...U.clone(sn.settings), sync: S().sync };
+    markReplaced(prev);
     state.undo = []; state.selection.clear();
     await persist(() => Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage }, photos: null }));
     applySettingsToUI(); renderAll(); renderSnapshots();
     U.toast('Snapshot restored', 'ok');
+    if (window.Sync) Sync.changed();
+  }
+  /** After a Replace-all restore: make the restored data win over the Google Drive copy.
+      Records that were on this device but aren't in the restore are marked deleted (so sync removes them
+      everywhere instead of bringing them back), and restored records/settings count as edited now. */
+  function markReplaced(prev) {
+    const now = Date.now();
+    const t = (state.meta.tombstones ||= {});
+    [['items', state.items], ['expenses', state.expenses], ['mileage', state.mileage]].forEach(([k, list]) => {
+      const keep = new Set(list.map((r) => r.id));
+      t[k] = { ...(t[k] || {}) };
+      (prev[k] || []).forEach((r) => { if (!keep.has(r.id)) t[k][r.id] = now; });
+      list.forEach((r) => { r.updatedAt = now + 1; delete t[k][r.id]; });
+    });
+    state.settings.updatedAt = now + 1;
   }
   /** One-time: items that already name a platform get it in "Listed On" too (nothing is removed). */
   function migrateListings() {
@@ -2468,7 +2521,7 @@
     if (!img.naturalWidth) { U.toast('That PNG could not be read.', 'err'); return; }
     state.logo = { dataURL, width: img.naturalWidth, height: img.naturalHeight, name: file.name };
     persist(() => Store.putVault('logo', state.logo));
-    renderLogo();
+    renderLogo(); if (window.Sync) Sync.changed();
     U.toast('Logo saved', 'ok');
   }
   function renderLogo() {
@@ -2550,7 +2603,7 @@
     $('#logoSlot').onclick = () => $('#logoInput').click();
     $('#btnLogoUpload').onclick = () => $('#logoInput').click();
     $('#logoInput').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; uploadLogo(f); };
-    $('#btnLogoRemove').onclick = () => { state.logo = null; persist(() => Store.putVault('logo', null)); renderLogo(); };
+    $('#btnLogoRemove').onclick = () => { state.logo = null; persist(() => Store.putVault('logo', null)); renderLogo(); if (window.Sync) Sync.changed(); };
 
     $('#btnChangePass').onclick = changePassword;
     $('#btnRecNew').onclick = () => setupRecoveryFromSettings();
@@ -2559,6 +2612,14 @@
       if (!(await U.confirm('Erase all data', 'This permanently deletes every item, expense, setting, logo and your password from this browser. <b>Export a backup first</b> if you may need it.', 'Erase everything', true))) return;
       const t = await U.prompt('Type ERASE to confirm', 'Confirmation', { placeholder: 'ERASE', okLabel: 'Erase' });
       if ((t || '').trim().toUpperCase() !== 'ERASE') return;
+      // signed in to the cloud: the same data is also in Firebase — offer to delete it, or it would come back the next time this device signs in
+      if (window.Sync && Sync.signedIn() && await U.confirm('Also erase the cloud copy?',
+        'This device is signed in to cloud sync, so this data is also in the cloud and on your other devices. <b>Erase the cloud copy too</b> only if this was test data or you are shutting sync down everywhere — it removes the data from <b>every</b> device the next time they sync.<br><br>Choose <b>Cancel</b> to erase only this device.',
+        'Erase cloud copy too', true)) {
+        try { await Sync.deleteRemote(); U.toast('Cloud copy erased', 'ok'); }
+        catch (e) { if (!(await U.confirm('Couldn’t reach the cloud', `The cloud copy wasn’t erased (${U.esc(e.message || e)}). Erase this device anyway?`, 'Erase this device', true))) return; }
+      }
+      if (window.Sync) { await Sync.signOut(); Sync.forgetDevice(); }
       await Store.wipe(); location.reload();
     };
   }
@@ -2759,7 +2820,7 @@
     const r = await questionsDialog(opts);
     if (!r) return false;
     await Store.setupQuestions(password, r.questions, r.answers);
-    state.meta.hasRecovery = true; renderBanner();
+    state.meta.hasRecovery = true; renderBanner(); if (window.Sync) Sync.changed();
     U.toast('Saved — if you forget your password, answer two of these questions on the lock screen.', 'ok');
     return true;
   }
