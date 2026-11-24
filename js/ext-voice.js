@@ -189,20 +189,71 @@
     const lab = labelOf(el), val = valueOf(el);
     speak(val ? (lab ? `${lab}: ${val}` : val) : `${lab || 'This box'} is empty.`, el);
   }
+  /* ---------- whole items, sales, expenses and trips ---------- */
+  const T = () => window.TA;
+  const dlong = (iso) => (iso ? new Date(iso + 'T12:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : '');
+  function itemSummary(it) {
+    const t = T(); if (!it) return '';
+    const parts = [it.name || 'Untitled item'];
+    const st = (it.status || '').toLowerCase();
+    if (Calc.isSold(it)) {
+      parts.push(`Sold for ${U.money(it.sellingPrice)}${it.platform ? ' on ' + t.platformLabel(it.platform) : ''}${it.dateSold ? ', ' + dlong(it.dateSold) : ''}`);
+      const p = Calc.profit(it); if (p != null) parts.push(`${p < 0 ? 'Loss' : 'Profit'} ${U.money(Math.abs(p))}`);
+      if (it.orderSize > 1) parts.push(`Part of a bundle of ${it.orderSize}`);
+    } else {
+      parts.push(`${st ? st.charAt(0).toUpperCase() + st.slice(1) : 'Available'}, price ${U.money(it.sellingPrice)}`);
+      const d = Calc.daysActive(it); if (d != null) parts.push(`${d} day${d === 1 ? '' : 's'} old`);
+      const live = (it.listings || []).filter((l) => l.status === 'active').map((l) => t.platformLabel(l.platform));
+      if (live.length) parts.push('Listed on ' + live.join(', ')); else if (it.platform) parts.push('Platform ' + t.platformLabel(it.platform)); else parts.push('No marketplace recorded');
+    }
+    if (it.purchasePrice != null) parts.push(`Cost ${U.money(it.purchasePrice)}`);
+    [['SKU', it.sku], ['Brand', it.brand], ['Size', it.size], ['Color', it.color], ['Condition', it.condition], ['Category', it.category], ['In', it.location]].forEach(([k, v]) => { if (v) parts.push(`${k} ${v}`); });
+    if ((it.offers || []).some((o) => o.status === 'pending')) parts.push('Has an offer waiting');
+    return parts.join('. ') + '.';
+  }
+  function expenseSummary(e) { return e ? `Expense. ${e.description || e.category}. ${U.money(e.amount)}${e.vendor ? ' at ' + e.vendor : ''}, ${dlong(e.date)}. Category ${e.category}.` : ''; }
+  function tripSummary(m) { return m ? `Trip. ${Calc.tripMiles(m)} miles${m.roundTrip ? ', round trip' : ''}${m.to ? ' to ' + m.to : ''}, ${dlong(m.date)}. ${m.purpose || ''}.` : ''; }
+  X.itemSummary = itemSummary;
+  // what can be read by holding it: text boxes, or a whole item card / row / tile
+  function containerOf(target) {
+    const t = T(); if (!t) return null;
+    const row = target.closest('tr[data-id]');
+    if (row) {
+      const tbl = row.closest('table'), id = row.dataset.id;
+      if (tbl && (tbl.id === 'invTable' || tbl.id === 'ordTable')) { const it = t.findItem(id); return it && { el: row, text: () => itemSummary(t.findItem(id)) }; }
+      if (tbl && tbl.id === 'expTable') return { el: row, text: () => expenseSummary(t.state.expenses.find((e) => e.id === id)) };
+      if (tbl && tbl.id === 'mileTable') return { el: row, text: () => tripSummary(t.state.mileage.find((m) => m.id === id)) };
+    }
+    const c = target.closest('[data-aid], [data-sheet], .sh-main, .sh-photo');
+    if (c) {
+      const id = c.dataset.aid || c.dataset.sheet || ((c.closest('[data-item]') || {}).dataset || {}).item;
+      if (id && t.findItem(id)) return { el: c, text: () => itemSummary(t.findItem(id)) };
+    }
+    return null;
+  }
+
   // press-and-hold detection; the speech starts when you let go (phones only allow sound from a tap)
   let hold = null;
   const HOLD_MS = 550;
   function down(e) {
     if (!TTS || !ttsOn() || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    const el = e.target.closest('input, textarea, select'); if (!isReadable(el)) return;
-    hold = { el, x: e.clientX, y: e.clientY, t: Date.now(), ready: false, timer: setTimeout(() => { if (!hold) return; hold.ready = true; el.classList.add('tts-ready'); try { navigator.vibrate && navigator.vibrate(18); } catch (_) { /* ignore */ } }, HOLD_MS) };
+    let el = e.target.closest('input, textarea, select'), read = null;
+    if (isReadable(el)) read = () => readField(el);
+    else { if (e.target.closest('button, a, .row-actions, .col-check')) return; const c = containerOf(e.target); if (!c) return; el = c.el; read = () => speak(c.text(), el); }
+    hold = { el, read, x: e.clientX, y: e.clientY, t: Date.now(), ready: false, timer: setTimeout(() => { if (!hold) return; hold.ready = true; el.classList.add('tts-ready'); try { navigator.vibrate && navigator.vibrate(18); } catch (_) { /* ignore */ } }, HOLD_MS) };
   }
   function move(e) { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 12) cancelHold(); }
+  // a long press shouldn't also open / collapse the card it was on
+  function swallowClick() {
+    const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+    document.addEventListener('click', stop, { capture: true, once: true });
+    setTimeout(() => document.removeEventListener('click', stop, true), 400);
+  }
   function cancelHold() { if (!hold) return; clearTimeout(hold.timer); hold.el.classList.remove('tts-ready'); hold = null; }
   function up(e) {
     if (!hold) return;
     const h = hold; cancelHold();
-    if (h.ready || Date.now() - h.t >= HOLD_MS) { e.preventDefault(); readField(h.el); }
+    if (h.ready || Date.now() - h.t >= HOLD_MS) { e.preventDefault(); swallowClick(); h.read(); }
   }
   X.on('init', () => {
     if (!TTS) return;
@@ -210,9 +261,9 @@
     document.addEventListener('pointermove', move, true);
     document.addEventListener('pointerup', up, true);
     document.addEventListener('pointercancel', (e) => { // iOS cancels the pointer when it shows the text loupe; still read it
-      if (hold && hold.ready) { const h = hold; cancelHold(); readField(h.el); } else cancelHold();
+      if (hold && hold.ready) { const h = hold; cancelHold(); swallowClick(); h.read(); } else cancelHold();
     }, true);
-    document.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.tts-ready')) e.preventDefault(); }, true);
+    document.addEventListener('contextmenu', (e) => { if (hold || (e.target.closest && e.target.closest('.tts-ready'))) e.preventDefault(); }, true);
     if (TTS.getVoices().length === 0 && 'onvoiceschanged' in TTS) TTS.onvoiceschanged = () => {};
   });
   function renderTtsSetting() {

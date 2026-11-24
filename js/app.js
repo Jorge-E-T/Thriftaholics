@@ -1126,7 +1126,7 @@
       .filter(([, v]) => v).map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('');
     const lst = (it.listings || []).filter((l) => l.platform || l.url);
     const edited = it.editedBy ? `<div class="sh-edited">Last edited by <b>${esc(it.editedBy)}</b>${it.updatedAt ? ' · ' + esc(timeAgo(it.updatedAt)) : ''}</div>` : '';
-    const body = `<div class="sheet">
+    const body = `<div class="sheet" data-item="${esc(it.id)}">
       <div class="sh-photo ${photo ? '' : 'none'}">${photo ? `<img src="${photo}" alt="">` : `<button type="button" class="sh-add" data-sh="photo">${ICON.camera || ''}<span>Add a photo</span></button>`}
         <span class="sh-age age-${age}">${sold ? 'Sold' : d !== null ? d + ' days listed' : 'Not listed yet'}</span></div>
       <div class="sh-main">
@@ -3237,7 +3237,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.24l';
+  const APP_VERSION = '2026.11.24m';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;

@@ -99,11 +99,13 @@
           ['Anywhere', 'The keyboard microphone works in every box of the app, on any phone, even when the app’s own 🎤 isn’t available.']
         ] },
         { t: 'note', kind: 'tip', html: 'Speak clearly and a little slower than normal for brand names; if a word comes out wrong, tap into the box and fix just that word.' },
-        { t: 'steps', h: '🔊 Read aloud — press and hold a box', items: [
-          ['Press and hold', 'Touch any box — a name, description, price, date, dropdown — and keep your finger on it for about half a second. The box glows gold (Android phones also give a little buzz).'],
+        { t: 'steps', h: '🔊 Read aloud — press and hold a box or an item', items: [
+          ['Press and hold', 'Touch any box — a name, description, price, date, dropdown — or a whole item card, and keep your finger on it for about half a second. The box glows gold (Android phones also give a little buzz).'],
           ['Let go to listen', 'The app reads the box’s label and what’s in it, like “Selling Price: $28.00” or “Date Posted: Friday, November 1, 2024”. Empty boxes say “… is empty”.'],
           ['Stop any time', 'Tap <b>■ Stop</b> on the green bubble, or press and hold another box to hear that one instead.'],
-          ['On a computer', 'Click and hold the mouse on a box, then let go.']
+          ['Whole items, too', 'Hold an inventory <b>card</b>, a table <b>row</b>, a <b>gallery</b> photo, a sale in Orders, an Action Center item or the item details window, and it reads the whole item: name, status and price (or what it sold for, where and the profit), how old it is, where it’s listed, cost, SKU, brand, size, color, condition, category and bin. Expenses and mileage rows read their details too.'],
+          ['A quick tap still works normally', 'Only a press-and-hold reads — a normal tap still opens a card, edits a cell or opens an item.'],
+          ['On a computer', 'Click and hold the mouse on a box or a row, then let go.']
         ] },
         { t: 'grid', h: 'Read-aloud settings', items: [
           ['🔊', 'On or off', `Settings → Business → <b>Read aloud</b>. Per device, like voice typing. ${go('settings', '#setTts')}`],
