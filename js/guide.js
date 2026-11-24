@@ -74,6 +74,46 @@
       ]
     },
     {
+      id: 'voice', icon: '🎤', color: '#d93a2f', title: 'Voice typing & read aloud',
+      lead: 'Speak instead of typing, and have the app read any box out loud. Handy when your hands are full of clothes — or your eyes are on a garment tag.',
+      blocks: [
+        { t: 'steps', h: 'How to use it', items: [
+          ['Tap into any text box', 'A round 🎤 microphone appears at the right edge of the box — in the item editor, haul rows, offers, notes, the cross-list helper, everywhere. The Inventory search, the Guide search and Search everything (Ctrl+K) have their own 🎤 built in.'],
+          ['Tap the microphone and speak', 'It turns red and a bubble shows what it hears. Stop talking and it finishes by itself — or tap the microphone again to stop.'],
+          ['Keep going', 'Tap again to add more: new words are added after what’s already in the box, so you can dictate a description sentence by sentence.'],
+          ['The first time', 'Your phone asks to use the microphone — tap <b>Allow</b>.']
+        ] },
+        { t: 'grid', h: 'Smart about money', items: [
+          ['💲', 'Prices', 'In price boxes, say “twenty five dollars”, “25”, “4 dollars 50” or “4.50” — only the number goes in.'],
+          ['🔎', 'Searches', 'Say a name, brand, SKU or bin (“bin A1”), or a command like “new haul” in Search everything.'],
+          ['✍️', 'Descriptions', 'The first word is capitalized for you. Edit anything by tapping into the text as usual.'],
+          ['🙈', 'Turn it off', `Settings → Business → <b>Voice typing buttons on this device</b>. It’s per device — your setting doesn’t change the other person’s. ${go('settings', '#setVoice')}`]
+        ] },
+        { t: 'cards', items: [
+          ['🤖', 'Android (Chrome)', 'Works in Chrome and in the installed Thriftaholics app. Speech is turned into text by Google’s speech service, so you need an internet connection.', ''],
+          ['🍎', 'iPhone (Safari)', 'Works when the app is open in <b>Safari</b>; needs <b>Siri &amp; Dictation</b> turned on (Settings → Siri). Apple doesn’t yet allow this microphone inside apps added to the Home Screen, so there the app hides its 🎤 — use the keyboard’s 🎤 instead (below).', '']
+        ] },
+        { t: 'steps', h: 'Always works: the keyboard microphone', items: [
+          ['iPhone', 'Tap any box, then the 🎤 key at the bottom-right of the keyboard. If it’s missing: Settings → General → Keyboard → <b>Enable Dictation</b>. Say “period”, “comma” or “new line” for punctuation.'],
+          ['Android', 'Tap any box, then the 🎤 at the top-right of Gboard. Say “period” or “comma” for punctuation.'],
+          ['Anywhere', 'The keyboard microphone works in every box of the app, on any phone, even when the app’s own 🎤 isn’t available.']
+        ] },
+        { t: 'note', kind: 'tip', html: 'Speak clearly and a little slower than normal for brand names; if a word comes out wrong, tap into the box and fix just that word.' },
+        { t: 'steps', h: '🔊 Read aloud — press and hold a box', items: [
+          ['Press and hold', 'Touch any box — a name, description, price, date, dropdown — and keep your finger on it for about half a second. The box glows gold (Android phones also give a little buzz).'],
+          ['Let go to listen', 'The app reads the box’s label and what’s in it, like “Selling Price: $28.00” or “Date Posted: Friday, November 1, 2024”. Empty boxes say “… is empty”.'],
+          ['Stop any time', 'Tap <b>■ Stop</b> on the green bubble, or press and hold another box to hear that one instead.'],
+          ['On a computer', 'Click and hold the mouse on a box, then let go.']
+        ] },
+        { t: 'grid', h: 'Read-aloud settings', items: [
+          ['🔊', 'On or off', `Settings → Business → <b>Read aloud</b>. Per device, like voice typing. ${go('settings', '#setTts')}`],
+          ['🐢', 'Reading speed', 'Slower, Normal or Faster — then <b>▶ Try it</b>.'],
+          ['📱', 'Both phones', 'Uses the phone’s own reading voice — works on Android and iPhone, including the Home Screen app, and usually works without internet.'],
+          ['🔈', 'No sound?', 'Turn up the volume. On iPhone, also flip the silent switch (or Action button) off — silent mode mutes reading.']
+        ] }
+      ]
+    },
+    {
       id: 'import', icon: '📥', color: '#6b6fa8', title: 'Bringing in your inventory',
       lead: 'Start from your spreadsheet, a backup, or another program — the app keeps a safety snapshot before every import.',
       blocks: [
@@ -447,6 +487,9 @@
           ['I made a mistake. How do I take it back?', 'Click <b>Undo</b> in the bottom-left corner (or press Ctrl/⌘ + Z) — as many times as you need, up to 50 steps. Went one too far? <b>Redo</b>. Undo remembers what <b>you</b> did on <b>this device</b> since you unlocked the app; for older changes, or something someone else did, use <b>Revert</b> in the activity history (Dashboard → Recent activity → View all).'],
           ['A buyer bought three items together. How do I record it?', 'Select the three items → <b>Mark sold…</b> → <b>One order (bundle)</b>. Enter the order total; the app splits it between the items.'],
           ['Where did my photo go after I edited it?', 'It replaced the original. If you want both, add the photo again before editing one copy.'],
+          ['There’s no 🎤 in the boxes on my iPhone.', 'In the Home Screen app, Apple doesn’t let web apps use the microphone for dictation yet — use the 🎤 on your keyboard instead, which works everywhere. In Safari, make sure Siri &amp; Dictation is on.'],
+          ['The microphone says it’s blocked.', 'You tapped “Don’t allow” once. Android Chrome: tap the icon left of the address → Permissions → Microphone → Allow. iPhone Safari: Settings → Apps → Safari → Microphone → Allow (or aA in the address bar → Website Settings).'],
+          ['Press and hold doesn’t read anything.', 'Check Settings → Business → Read aloud is ticked, the volume is up, and (iPhone) the phone isn’t on silent. Hold still for about half a second — moving your finger counts as scrolling.'],
           ['How do I replay the tour?', 'Guide tab → <b>▶ Take the 60-second tour</b>, or search “tour” with Ctrl+K.'],
           ['I imported the wrong file.', 'Settings → Safety snapshots → restore the snapshot from just before the import.'],
           ['Labels print the wrong size.', 'In the print window set scale to <b>Actual size / 100%</b>, margins to <b>Default</b>, and check the label format in Settings.'],
