@@ -702,12 +702,16 @@
   /* =========================================================
      INVENTORY VIEW
      ========================================================= */
+  /* ---- shared SKUs ---- */
+  const skuKey = (s) => String(s ?? '').trim().toLowerCase();
+  const sameSku = (sku, exceptId) => { const k = skuKey(sku); return k ? state.items.filter((i) => i.id !== exceptId && skuKey(i.sku) === k) : []; };
+  const skuDupNote = (sku, exceptId) => { const o = sameSku(sku, exceptId); return o.length ? `SKU ${sku} is also used by ${o.slice(0, 2).map((x) => `“${x.name || 'an item'}”`).join(', ')}${o.length > 2 ? ` and ${o.length - 2} more` : ''}. That’s allowed — each item stays separate.` : ''; };
   const INV_COLS = [
     { key: 'name', label: 'Item Name', type: 'text', width: 230 },
     { key: 'category', label: 'Category', type: 'list', free: true, lower: true, list: allCats, render: (r) => esc(r.category || '') },
     { key: 'brand', label: 'Brand', type: 'list', free: true, list: () => uniqVals('brand') },
     { key: 'size', label: 'Size', type: 'list', free: true, list: () => uniqVals('size') },
-    { key: 'sku', label: 'SKU', type: 'text', get: (r) => { const n = Number(r.sku); return r.sku !== '' && !isNaN(n) ? n : (r.sku || null); } },
+    { key: 'sku', label: 'SKU', type: 'text', get: (r) => { const n = Number(r.sku); return r.sku !== '' && !isNaN(n) ? n : (r.sku || null); }, render: (r) => { const d = r.sku ? sameSku(r.sku, r.id).length : 0; return `${esc(r.sku || '')}${d ? ` <span class="sku-dup" title="${d + 1} items share this SKU">×${d + 1}</span>` : ''}`; } },
     { key: 'location', label: 'Location', type: 'list', free: true, list: () => uniqVals('location'), render: (r) => (r.location ? `<span class="loc">${esc(r.location)}</span>` : '') },
     { key: 'purchasePrice', label: 'Purchase Price', type: 'money', total: 'sum', totalLabel: 'Total Purchase' },
     { key: 'sellingPrice', label: 'Selling Price', type: 'money', total: 'sum', totalLabel: 'Inventory Estimate', render: (r) => (r.sellingPrice == null ? '<span class="muted">—</span>' : `${esc(U.money(r.sellingPrice))}${(r.priceHistory || []).length ? `<span class="ph-dot" title="Price changed ${r.priceHistory.length}× — last: ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].from))} → ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].to))}">↓</span>` : ''}`) },
@@ -738,7 +742,7 @@
       if (fs && (it.status || '').toLowerCase() !== fs.toLowerCase()) return false;
       if (fc && (it.category || '').toLowerCase() !== fc.toLowerCase()) return false;
       if (fp && ![it.platform, ...(it.listings || []).map((l) => l.platform)].some((x) => (x || '').toLowerCase() === fp.toLowerCase())) return false;
-      if (fa && Calc.ageClass(it, S()) !== fa) return false;
+      if (fa === 'dupsku') { if (!it.sku || !sameSku(it.sku, it.id).length) return false; } else if (fa && Calc.ageClass(it, S()) !== fa) return false;
       if (q) {
         const hay = [it.name, it.sku, it.category, it.platform, it.status, it.notes, it.brand, it.size, it.color, it.location, it.source, ...(it.listings || []).flatMap((l) => [l.platform, l.url])].join(' ').toLowerCase();
         if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
@@ -767,6 +771,7 @@
       emptyText: 'No items match. Adjust filters or click “+ Add item”.',
       onEdit: (r, key, v) => {
         updateItem(r, { [key]: v }, 'edit ' + key);
+        if (key === 'sku' && v && sameSku(v, r.id).length) U.toast(skuDupNote(v, r.id), 'warn');
         if (key === 'category') addListValue('categories', v);
         if (key === 'platform') addListValue('platforms', v);
         renderCounts();
@@ -892,7 +897,7 @@
       <div class="form-grid">
         <label class="field span-2"><span>Item Name *</span><input name="name" value="${esc(it.name)}" required></label>
         <label class="field"><span>Category</span><input name="category" list="dlCat" value="${esc(it.category)}"></label>
-        <label class="field"><span>SKU</span><input name="sku" value="${esc(it.sku)}"></label>
+        <label class="field"><span>SKU</span><input name="sku" value="${esc(it.sku)}"><small class="sku-warn" data-skuwarn="${esc(it.id)}">${esc(skuDupNote(it.sku, it.id))}</small></label>
         <label class="field"><span>Purchase Price</span><input name="purchasePrice" inputmode="decimal" value="${numVal(it.purchasePrice)}"></label>
         <label class="field"><span>Selling Price</span><input name="sellingPrice" inputmode="decimal" value="${numVal(it.sellingPrice)}"></label>
         <label class="field"><span>Status</span><select name="status">${listOptions(allStatuses(), it.status)}</select></label>
@@ -2230,9 +2235,27 @@
   const printCtx = () => ({ items: state.items, expenses: state.expenses, mileage: state.mileage, settings: S(), platformLabel, logo: logoURL(), company: (S().companyName ?? '').trim() });
   function openItemFromCode(text) {
     const q = Labels.parse(text);
-    const it = q.id ? findItem(q.id) : state.items.find((i) => String(i.sku).toLowerCase() === String(q.sku || '').toLowerCase());
-    if (!it) { U.toast(`No item with SKU “${q.sku || q.id}”`, 'err'); return; }
+    let it = q.id ? findItem(q.id) : null;
+    if (!it && q.sku) {
+      const hits = state.items.filter((i) => skuKey(i.sku) === skuKey(q.sku));
+      if (hits.length > 1) { pickSkuItem(q.sku, hits); return; }
+      it = hits[0];
+    }
+    if (!it) { U.toast(q.id ? 'That item isn’t in this inventory (it may have been deleted)' : `No item with SKU “${q.sku}”`, 'err'); return; }
     showView('inventory'); $('#btnClearFilters').click(); flashRow(it.id); itemDialog(it);
+  }
+  document.addEventListener('input', (e) => {
+    if (!e.target.matches('#modalBody [name=sku]')) return;
+    const w = e.target.parentElement.querySelector('[data-skuwarn]'); if (w) w.textContent = skuDupNote(e.target.value.trim(), w.dataset.skuwarn);
+  });
+  async function pickSkuItem(sku, hits) {
+    const order = [...hits].sort((a, b) => Number(Calc.isSold(a)) - Number(Calc.isSold(b)) || (a.name || '').localeCompare(b.name || ''));
+    const body = `<p class="muted">${hits.length} items share SKU <b>${esc(sku)}</b>. Which one is it?</p>
+      <div class="sku-pick">${order.map((x) => { const t = state.thumbs[x.id]; return `<button type="button" class="sku-opt" data-pick="${esc(x.id)}"><span class="so-ph">${t ? `<img src="${t.thumb}" alt="">` : ''}</span><span class="so-t"><b>${esc(x.name || 'Untitled')}</b><em>${[x.brand, x.size ? 'Size ' + x.size : '', x.color, x.location ? '📍 ' + x.location : ''].filter(Boolean).map(esc).join(' · ')}</em></span><span class="so-r">${statusBadge(x.status)}<b>${esc(U.money(x.sellingPrice))}</b></span></button>`; }).join('')}</div>`;
+    const id = await U.modal({ title: 'Which item?', body, buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost' }],
+      onOpen: (b) => b.addEventListener('click', (e) => { const p = e.target.closest('[data-pick]'); if (p) U.closeModal(p.dataset.pick); }) });
+    const it = id && findItem(id);
+    if (it) { showView('inventory'); $('#btnClearFilters').click(); flashRow(it.id); itemDialog(it); }
   }
   function handleHash() {
     const h = location.hash;
@@ -2945,7 +2968,7 @@
   function makeMatcher(items) {
     const bySku = new Map(), byNameDate = new Map(), byName = new Map();
     items.forEach((it) => {
-      if (it.sku) bySku.set(String(it.sku).trim().toLowerCase(), it);
+      if (it.sku) { const k = String(it.sku).trim().toLowerCase(); (bySku.get(k) || bySku.set(k, []).get(k)).push(it); }
       const n = (it.name || '').trim().toLowerCase();
       byNameDate.set(n + '|' + (it.datePosted || ''), it);
       (byName.get(n) || byName.set(n, []).get(n)).push(it);
@@ -2954,9 +2977,11 @@
     return (r) => {
       const n = (r.name || '').trim().toLowerCase();
       let hit = null;
-      if (r.sku) { const c = bySku.get(String(r.sku).trim().toLowerCase()); if (c && (c.name || '').trim().toLowerCase() === n) hit = c; }
-      if (!hit) hit = byNameDate.get(n + '|' + (r.datePosted || '')) || null;
-      if (!hit && r.sku) hit = bySku.get(String(r.sku).trim().toLowerCase()) || null;
+      const skuList = r.sku ? (bySku.get(String(r.sku).trim().toLowerCase()) || []).filter((x) => !used.has(x.id)) : [];
+      if (skuList.length) { const named = skuList.filter((c) => (c.name || '').trim().toLowerCase() === n); if (named.length === 1) hit = named[0]; }
+      if (!hit) { const c = byNameDate.get(n + '|' + (r.datePosted || '')); if (c && !used.has(c.id)) hit = c; }
+      // a SKU alone only counts as a match when exactly one item uses it — shared SKUs need the name too
+      if (!hit && skuList.length === 1 && (bySku.get(String(r.sku).trim().toLowerCase()) || []).length === 1) hit = skuList[0];
       if (!hit) { const same = (byName.get(n) || []).filter((x) => !used.has(x.id)); if (same.length === 1) hit = same[0]; }
       if (hit && used.has(hit.id)) hit = null;
       if (hit) used.add(hit.id);
@@ -3068,7 +3093,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.24e';
+  const APP_VERSION = '2026.11.24f';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;

@@ -368,6 +368,7 @@
           ['Can the app post listings to Poshmark, Depop or Mercari by itself?', 'No — those marketplaces don’t allow outside apps to post for you. The Cross-list helper gets everything ready so each site takes about a minute: open, paste, publish, paste the link back.'],
           ['The “sell” page link opens the wrong page.', 'Sites move pages around. Open the site, go to its “sell an item” page yourself, copy that address, and paste it into Platforms → Edit → Cross-listing helper → “Sell an item” page.'],
           ['A title is cut off.', 'It was trimmed to that site’s title limit. Edit it in the helper, or change the limit in Platforms → Edit if the site allows more.'],
+          ['Can two items have the same SKU?', 'Yes. Every item has its own hidden ID, so sales, profit, photos and sync keep them apart. The app just helps you notice: the SKU shows a small <b>×2</b> badge, the editor says which other item uses it, and Inventory → <b>⚠ Duplicate SKUs</b> (in the age filter) lists them all. QR labels open the exact item, and typing or scanning a shared SKU asks which one you mean.'],
           ['I imported the wrong file.', 'Settings → Safety snapshots → restore the snapshot from just before the import.'],
           ['Labels print the wrong size.', 'In the print window set scale to <b>Actual size / 100%</b>, margins to <b>Default</b>, and check the label format in Settings.'],
           ['Where are the PDFs saved?', 'Wherever you choose in the print window after picking <b>Save as PDF</b> (usually Downloads).'],

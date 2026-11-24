@@ -15,10 +15,9 @@
     thermal4x6: { name: 'Label printer 4" × 6" (one per label)' }
   };
 
-  Labels.itemUrl = (it) => {
-    const base = location.origin + location.pathname;
-    return it.sku ? `${base}#sku=${encodeURIComponent(it.sku)}` : `${base}#id=${encodeURIComponent(it.id)}`;
-  };
+  // The QR code points at the item's own hidden ID, so it always opens exactly this item —
+  // even if several items share a SKU. (Older labels with #sku= links keep working.)
+  Labels.itemUrl = (it) => `${location.origin + location.pathname}#id=${encodeURIComponent(it.id)}`;
   Labels.qrSvg = (text) => {
     if (!global.qrcode) return '';
     const qr = global.qrcode(0, 'M');
