@@ -89,12 +89,16 @@
     const on = box.querySelector('.ck-row.on'); if (on) on.scrollIntoView({ block: 'nearest' });
   }
   function run(i) { const r = res[i]; if (!r) return; close(); setTimeout(r.fn, 30); }
-  function close() { if (pal) { pal.classList.add('out'); const p = pal; pal = null; setTimeout(() => p.remove(), 160); } }
+  function onKey(e) { if (pal && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }
+  function close() {
+    document.removeEventListener('keydown', onKey, true);
+    if (pal) { pal.classList.add('out'); const p = pal; pal = null; setTimeout(() => p.remove(), 160); }
+  }
   function open() {
     if (pal || !Store.unlocked) return;
     if (!document.getElementById('modal').classList.contains('hidden')) return;
     pal = document.createElement('div'); pal.className = 'ck';
-    pal.innerHTML = `<div class="ck-box" role="dialog" aria-label="Search everything"><div class="ck-in"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><input placeholder="Search items, sales, expenses, settings, help… or type a command" autocomplete="off"><kbd>Esc</kbd></div><div class="ck-res"></div>
+    pal.innerHTML = `<div class="ck-box" role="dialog" aria-label="Search everything"><div class="ck-in"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><input placeholder="Search items, sales, expenses, settings, help… or type a command" autocomplete="off"><button type="button" class="ck-esc" data-ck-close title="Close (Esc)">Esc</button></div><div class="ck-res"></div>
       <div class="ck-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span><span><kbd>Esc</kbd> close</span></div></div>`;
     document.body.appendChild(pal);
     const inp = pal.querySelector('input');
@@ -104,9 +108,14 @@
       if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(res.length - 1, sel + 1); draw(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); draw(); }
       else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
-      else if (e.key === 'Escape') { e.preventDefault(); close(); }
     });
-    pal.addEventListener('click', (e) => { const r = e.target.closest('.ck-row'); if (r) run(+r.dataset.i); else if (!e.target.closest('.ck-box')) close(); });
+    pal.addEventListener('click', (e) => {
+      if (e.target.closest('[data-ck-close]') || !e.target.closest('.ck-box')) { close(); return; }
+      const r = e.target.closest('.ck-row'); if (r) { run(+r.dataset.i); return; }
+      inp.focus(); // clicks on empty parts of the window keep typing in the search box
+    });
+    // Esc closes it wherever the focus is
+    document.addEventListener('keydown', onKey, true);
     upd(); inp.focus();
   }
   X.openSearch = open;

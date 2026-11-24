@@ -97,8 +97,8 @@
     const t = T(); const th = (i) => (t.thumbOf(i) ? `<img class="yr-ph" src="${t.thumbOf(i)}" alt="">` : '<span class="yr-ph none">👗</span>');
     const S_ = [];
     S_.push(`<div class="yr-c"><img class="yr-logo" src="${(t.state.logo && t.state.logo.dataURL) || 'icons/brand-mark.png'}" alt=""><div class="yr-k">${esc(S().companyName || 'Thriftaholics')}</div><h2 class="script">Your ${d.y} in thrift</h2><p>Tap or press → to begin</p></div>`);
-    if (!d.sold.length) { S_.push(`<div class="yr-c"><h2>No sales in ${d.y} yet</h2><p>Come back when the first ones roll in — this recap fills itself in.</p></div>`); return S_; }
-    S_.push(`<div class="yr-c"><div class="yr-k">You sold</div><div class="yr-big" data-count="${d.sold.length}">${d.sold.length}</div><div class="yr-k">items for</div><div class="yr-big gold" data-count="${d.m.gross}" data-money>${U.money0(d.m.gross)}</div></div>`);
+    if (!d.sold.length) { S_.push(d.y >= new Date().getFullYear() ? `<div class="yr-c"><h2>No sales in ${d.y} yet</h2><p>Come back when the first ones roll in — this recap fills itself in.</p></div>` : `<div class="yr-c"><h2>No sales recorded in ${d.y}</h2><p>Pick another year above to see its recap.</p></div>`); return S_; }
+    S_.push(`<div class="yr-c"><div class="yr-k">You sold</div><div class="yr-big" data-count="${d.sold.length}">${d.sold.length}</div><div class="yr-k">${d.sold.length === 1 ? 'item' : 'items'} for</div><div class="yr-big gold" data-count="${d.m.gross}" data-money>${U.money0(d.m.gross)}</div></div>`);
     S_.push(`<div class="yr-c"><div class="yr-k">and kept</div><div class="yr-big" data-count="${d.m.netProfit}" data-money>${U.money0(d.m.netProfit)}</div><div class="yr-k">in profit${d.m.netMargin != null ? ` · a ${U.pct(d.m.netMargin)} margin` : ''}</div>${d.m.miles ? `<p>…after ${U.int(d.m.miles)} business miles and ${U.money0(d.m.expenseTotal)} of expenses.</p>` : ''}</div>`);
     const mx = Math.max(1, ...d.months);
     S_.push(`<div class="yr-c"><div class="yr-k">Your best month was</div><h2>${new Date(d.y, d.bestM, 1).toLocaleDateString(undefined, { month: 'long' })}</h2><div class="yr-bars">${d.months.map((v, k) => `<div class="${k === d.bestM ? 'top' : ''}"><i style="height:${Math.max(2, v / mx * 100)}%"></i><span>${MONTHS[k][0]}</span></div>`).join('')}</div><p>${U.money0(d.months[d.bestM])} in sales</p></div>`);
@@ -114,14 +114,21 @@
     return S_;
   }
   async function yearInReview(year) {
-    const t = T(); const years = [...new Set(t.state.items.filter((i) => Calc.isSold(i) && i.dateSold).map((i) => +i.dateSold.slice(0, 4)))].sort((a, b) => b - a);
-    let y = year || years[0] || new Date().getFullYear();
+    const t = T();
+    // every year from your first record to this year, each with its number of sales
+    const now = new Date().getFullYear();
+    const yearsOf = (arr) => arr.map((v) => +String(v || '').slice(0, 4)).filter((v) => v > 1990 && v <= now);
+    const first = Math.min(now, ...yearsOf(t.state.items.flatMap((i) => [i.dateSold, i.datePosted, i.purchaseDate])), ...yearsOf(t.state.expenses.map((e) => e.date)));
+    const salesIn = {}; t.state.items.forEach((i) => { if (Calc.isSold(i) && i.dateSold) { const k = +i.dateSold.slice(0, 4); salesIn[k] = (salesIn[k] || 0) + 1; } });
+    const years = []; for (let v = now; v >= first; v--) years.push(v);
+    const withSales = years.filter((v) => salesIn[v]);
+    let y = year || (salesIn[now] ? now : withSales[0] || now);
     const ov = document.createElement('div'); ov.className = 'yr';
     let idx = 0, ss = [];
     const render = () => {
       const d = yearData(y); ss = slides(d); idx = Math.min(idx, ss.length - 1);
       ov.innerHTML = `<div class="yr-top"><div class="yr-prog">${ss.map((_, i) => `<i class="${i < idx ? 'done' : i === idx ? 'on' : ''}"></i>`).join('')}</div>
-          <div class="yr-bar"><select data-yy>${(years.length ? years : [y]).map((v) => `<option ${v === y ? 'selected' : ''}>${v}</option>`).join('')}</select><button type="button" class="yr-x" data-yr="close" aria-label="Close">✕</button></div></div>
+          <div class="yr-bar"><div class="yr-years" role="tablist" aria-label="Year">${years.map((v) => `<button type="button" role="tab" class="yr-yt ${v === y ? 'on' : ''}" data-yy="${v}" aria-selected="${v === y}">${v}<em>${salesIn[v] ? salesIn[v] + ' sold' : 'no sales'}</em></button>`).join('')}</div><button type="button" class="yr-x" data-yr="close" aria-label="Close">✕</button></div></div>
         <div class="yr-stage"><button type="button" class="yr-nav l" data-yr="prev" aria-label="Back">‹</button><div class="yr-slide" style="--h:${(idx * 37) % 360}">${ss[idx]}</div><button type="button" class="yr-nav r" data-yr="next" aria-label="Next">›</button></div>`;
       ov.querySelectorAll('[data-count]').forEach((el) => { const to = +el.dataset.count, money = el.hasAttribute('data-money'); const t0 = performance.now(); const step = (n) => { const k = Math.min(1, (n - t0) / 900), v = to * (1 - Math.pow(1 - k, 3)); el.textContent = money ? U.money0(v) : Math.round(v); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
       X.yrData = d;
@@ -131,11 +138,11 @@
     const key = (e) => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); } else if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'Escape') close(); };
     ov.addEventListener('click', (e) => {
       const b = e.target.closest('[data-yr]');
+      const yt = e.target.closest('[data-yy]'); if (yt) { y = +yt.dataset.yy; idx = 0; render(); return; }
       if (b) { const a = b.dataset.yr; if (a === 'close') close(); else if (a === 'next') go(1); else if (a === 'prev') go(-1); else if (a === 'pdf') printYear(yearData(y)); return; }
-      if (e.target.closest('select')) return;
+      if (e.target.closest('.yr-top')) return;
       if (e.target.closest('.yr-stage')) go(e.clientX > window.innerWidth / 3 ? 1 : -1);
     });
-    ov.addEventListener('change', (e) => { if (e.target.matches('[data-yy]')) { y = +e.target.value; idx = 0; render(); } });
     document.addEventListener('keydown', key);
     document.body.appendChild(ov); render();
   }
