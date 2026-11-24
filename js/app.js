@@ -1934,8 +1934,8 @@
      LABELS, SCANNING, LINKS TO ITEMS
      ========================================================= */
   const logoURL = () => (state.logo && state.logo.dataURL) || '';
-  const labelCtx = () => ({ format: S().labelFormat || 'avery5160', money: U.money, platformLabel, logo: logoURL(), company: S().companyName || 'Thriftaholics' });
-  const printCtx = () => ({ items: state.items, expenses: state.expenses, mileage: state.mileage, settings: S(), platformLabel, logo: logoURL(), company: S().companyName || 'Thriftaholics' });
+  const labelCtx = () => ({ format: S().labelFormat || 'avery5160', money: U.money, platformLabel, logo: logoURL(), company: (S().companyName ?? '').trim() });
+  const printCtx = () => ({ items: state.items, expenses: state.expenses, mileage: state.mileage, settings: S(), platformLabel, logo: logoURL(), company: (S().companyName ?? '').trim() });
   function openItemFromCode(text) {
     const q = Labels.parse(text);
     const it = q.id ? findItem(q.id) : state.items.find((i) => String(i.sku).toLowerCase() === String(q.sku || '').toLowerCase());
@@ -2523,7 +2523,7 @@
     try {
       U.toast('Building Excel report…');
       const blob = await Reports.exportWorkbook({ items: state.items, expenses: state.expenses, settings: S(), logo: state.logo, photos: S().excelPhotos ? state.thumbs : null, platforms: profiles().map((p) => ({ ...p, ruleText: feeSummary(p) })), mileage: state.mileage, from: r.from, to: r.to, label: r.label });
-      U.download(blob, `${U.slug(S().companyName)}-financial-report-${U.stamp()}.xlsx`);
+      U.download(blob, `${U.slug(S().companyName || 'Thriftaholics')}-financial-report-${U.stamp()}.xlsx`);
       U.toast('Excel report downloaded', 'ok');
     } catch (e) { console.error(e); U.toast('Excel export failed: ' + e.message, 'err'); }
   }
@@ -2541,7 +2541,7 @@
       out = await Store.encryptBackup(payload, pw);
       out.exportedAt = payload.exportedAt; out.counts = payload.counts;
     }
-    U.download(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }), `${U.slug(S().companyName)}-backup-${U.stamp()}${S().encryptBackup ? '-encrypted' : ''}.json`);
+    U.download(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }), `${U.slug(S().companyName || 'Thriftaholics')}-backup-${U.stamp()}${S().encryptBackup ? '-encrypted' : ''}.json`);
     state.meta.lastBackup = new Date().toISOString();
     persist(() => Store.putVault('lastBackup', state.meta.lastBackup));
     renderSettings(); renderBanner();
@@ -2776,7 +2776,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.24b';
+  const APP_VERSION = '2026.11.24d';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -2803,7 +2803,7 @@
     const sn = (state.meta.snapshots || []).find((x) => x.id === id); if (!sn) return;
     if (act === 'download') {
       const payload = { format: 'inventory-ledger-backup', version: 2, app: 'Inventory & Sales Ledger', exportedAt: sn.at, snapshot: sn.reason, counts: sn.counts, data: { items: sn.items, expenses: sn.expenses, mileage: sn.mileage || [], settings: sn.settings } };
-      U.download(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `${U.slug(S().companyName)}-snapshot-${sn.at.slice(0, 16).replace(/[:T]/g, '-')}.json`);
+      U.download(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `${U.slug(S().companyName || 'Thriftaholics')}-snapshot-${sn.at.slice(0, 16).replace(/[:T]/g, '-')}.json`);
       U.toast('Snapshot downloaded — keep it private', 'ok');
       return;
     }
@@ -2889,10 +2889,12 @@
     if (ensurePlatformProfiles()) saveSettings();
     if (!S().colsV3) { S().hiddenCols = uniq([...(S().hiddenCols || []), 'minPrice', 'color', 'condition', 'measurements', 'weight', 'source', 'purchaseDate']); S().colsV3 = true; saveSettings(); }
     U.setCurrency(S().currency);
-    $('#companyName').value = S().companyName;
+    if (S().companyName === 'My Company') { S().companyName = ''; saveSettings(); } // the old placeholder default
+    $('#companyName').value = S().companyName || '';
+    $('#companyName').classList.toggle('hidden', !S().companyName);
     $('#companyTag').textContent = S().tagline || '';
     document.querySelector('.topbar').classList.toggle('name-hidden', S().showName === false);
-    document.title = `${S().companyName} — Inventory & Sales`;
+    document.title = `${S().companyName || 'Thriftaholics'} — Inventory & Sales`;
     $('#lgAging').textContent = S().agingDays; $('#lgStale').textContent = S().staleDays;
     populateFilters(); renderSettings(); renderLogo(); armAutoLock();
   }
@@ -2915,7 +2917,7 @@
       const v = e.target.type === 'checkbox' ? e.target.checked : conv(e.target.value);
       S()[key] = v; saveSettings(); applySettingsToUI(); renderAll();
     });
-    bind('#setCompany', 'companyName', (v) => v.trim() || 'My Company');
+    bind('#setCompany', 'companyName', (v) => v.trim());
     bind('#setTagline', 'tagline', (v) => v.trim());
     bind('#setShowName', 'showName');
     $('#setYourName').addEventListener('change', (e) => { S().yourName = e.target.value.trim(); saveSettings(); renderActivityFeed(); });
@@ -3013,6 +3015,12 @@
      NAV + RENDER
      ========================================================= */
   function currentView() { return ($('.tab.active') || {}).dataset?.view || 'dashboard'; }
+  async function guideCtx() {
+    const hint = await Store.getHint().catch(() => '');
+    const qa = await Store.getQuestionAnswers().catch(() => null);
+    return { recovery: !!(hint || qa), logo: !!(state.logo && state.logo.dataURL), items: state.items.length, sold: state.items.filter((i) => Calc.isSold(i)).length,
+      platformsTouched: !!S().platformsSeen, backup: !!state.meta.lastBackup, name: !!(S().yourName || '').trim(), shop: !!S().shopUrl, sync: !!(window.Sync && Sync.signedIn && Sync.signedIn()) };
+  }
   function showView(v) {
     document.body.classList.toggle('has-bulkbar', v === 'inventory' && state.selection.size > 0);
     $('#bulkBar').classList.toggle('hidden', v !== 'inventory' || state.selection.size === 0);
@@ -3028,7 +3036,8 @@
     else if (v === 'expenses') { renderExpenses(); mileGrid.render(); }
     else if (v === 'reports') renderReport();
     else if (v === 'settings') { renderSettings(); renderPlanSettings(); renderSyncSettings(); renderRecoverySettings(); }
-    else if (v === 'platforms') renderPlatforms();
+    else if (v === 'platforms') { renderPlatforms(); if (!S().platformsSeen) { S().platformsSeen = true; saveSettings(); } }
+    else if (v === 'guide') Guide.render($('#guideRoot'), guideCtx);
     else if (v === 'actions') renderActions();
     requestAnimationFrame(() => { applyHeights(); [invGrid, ordGrid, expGrid].forEach((g) => g && g.applySticky()); });
   }

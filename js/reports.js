@@ -300,7 +300,7 @@
     wb.creator = settings.companyName || 'Inventory Ledger';
     wb.created = new Date();
     wb.title = 'Financial Report';
-    const ctx = { company: settings.companyName || 'My Company', logoId: null, logoRatio: 1 };
+    const ctx = { company: settings.companyName ?? '', logoId: null, logoRatio: 1 };
     if (logo && logo.dataURL) {
       try {
         ctx.logoId = wb.addImage({ base64: logo.dataURL, extension: 'png' });

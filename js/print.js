@@ -74,9 +74,9 @@
       .foot { position: fixed; bottom: 0; left: 0; right: 0; font-size: 7.5pt; color: #8b9490; display: flex; justify-content: space-between; }
       tr { break-inside: avoid; } h3 { break-after: avoid; }
     </style></head><body>
-      <div class="head">${brand(ctx)}<div class="co script">${esc(ctx.company)}</div><div class="ttl"><b>${esc(title)}</b><span>${esc(period)}</span></div></div>
+      <div class="head">${brand(ctx)}${ctx.company ? `<div class="co script">${esc(ctx.company)}</div>` : ''}<div class="ttl"><b>${esc(title)}</b><span>${esc(period)}</span></div></div>
       ${inner}
-      <div class="foot"><span>${esc(ctx.company)} · prepared ${esc(U.fmtDate(U.todayISO()))}</span><span>Figures from the Thriftaholics app</span></div>
+      <div class="foot"><span>${ctx.company ? esc(ctx.company) + ' · ' : ''}prepared ${esc(U.fmtDate(U.todayISO()))}</span><span>Figures from the Thriftaholics app</span></div>
     </body></html>`;
   }
   const kp = (label, v, c) => `<div style="--c:${c || '#164e47'}"><span>${esc(label)}</span><b>${esc(v)}</b></div>`;
@@ -151,7 +151,7 @@
     const css = fmt === '4x6' ? '@page { size: 4in 6in; margin: 0.25in; } .slip { height: 5.5in; } .logo { height: 54pt; } .co { font-size: 20pt; }'
       : '@page { size: letter; margin: 0.6in; } .slip { min-height: 9.6in; } .logo { height: 70pt; } .co { font-size: 28pt; }';
     const slip = (it) => `<section class="slip">
-      <div class="top">${brand(ctx)}<div><div class="co script teal">${esc(ctx.company)}</div><div class="muted">${esc(shop.replace(/^https?:\/\//, ''))}</div></div><div class="ps">PACKING SLIP</div></div>
+      <div class="top">${brand(ctx)}<div>${ctx.company ? `<div class="co script teal">${esc(ctx.company)}</div>` : ''}<div class="muted">${esc(shop.replace(/^https?:\/\//, ''))}</div></div><div class="ps">PACKING SLIP</div></div>
       <table class="meta"><tr><td><span>Order date</span>${esc(U.fmtDate(it.dateSold) || U.fmtDate(U.todayISO()))}</td><td><span>Sold on</span>${esc(ctx.platformLabel(it.platform) || '—')}</td><td><span>Item #</span>${esc(it.sku || it.id.slice(0, 6))}</td></tr></table>
       <table><tr><th>Item</th><th>Details</th><th class="n">Qty</th></tr>
         <tr><td><b>${esc(it.name)}</b></td><td>${[it.brand, it.size ? 'Size ' + it.size : '', it.color, it.condition].filter(Boolean).map(esc).join(' · ') || '—'}</td><td class="n">1</td></tr></table>
@@ -173,7 +173,7 @@
     const shop = ctx.settings.shopUrl || '';
     const list = items.length ? items : [{ name: '' }];
     const card = (it) => `<section class="card">
-      <div class="l">${brand(ctx)}<div class="co script teal">${esc(ctx.company)}</div></div>
+      <div class="l">${brand(ctx)}${ctx.company ? `<div class="co script teal">${esc(ctx.company)}</div>` : ''}</div>
       <div class="r"><div class="script teal big">Thank you!</div>
         ${it.name ? `<p class="for">for giving <b>${esc(it.name)}</b> a second home</p>` : ''}
         <p>${esc(ctx.settings.thankYouMessage || 'Thank you for shopping secondhand with us. We hope you love it!')}</p>
