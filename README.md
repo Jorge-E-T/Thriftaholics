@@ -1,4 +1,4 @@
-# Inventory & Sales Ledger
+# Thriftaholics — Inventory & Sales
 
 A private, password-protected inventory, ordering and sales tracker that runs entirely in the browser. It's plain HTML, CSS and JavaScript with no build step and no server. You can host it on GitHub Pages or open it locally.
 
@@ -39,7 +39,12 @@ A private, password-protected inventory, ordering and sales tracker that runs en
 - **Bulk actions:** mark items sold or available, set the category, duplicate or delete.
 - **Orders & Sales:** see every sale with its fees, profit, margin and days to sell. "Record sale" logs a new order from your inventory.
 - **Expenses:** track itemized business costs (supplies, postage, subscriptions, mileage and so on).
-- **Dashboard:** KPIs, monthly sales and profit, sales by platform, inventory aging, stale items, a category breakdown and recent sales.
+- **Dashboard:** KPI tiles with change versus the previous period and 12-month sparklines, goal rings, monthly sales and profit, a platform donut, a sales calendar, best sellers with photos, inventory aging, stale items, recent sales, recent activity and a category breakdown.
+- **Look and feel:** Thriftaholics brand colors, logo and script wordmark; Light, Dark or Auto (follows the device) from the ☀/🌙 button or Settings → Business; smooth transitions that switch off when the device asks for reduced motion.
+- **Views:** Table, Cards or (Inventory only) Gallery, on any screen size. Click a gallery tile, or the ⓘ row button, for the **item details** sheet: large photo, facts, where the money goes, price history chart and a timeline of everything that happened to the item.
+- **Branded PDFs:** Reports → **Monthly PDF** (profit summary with daily sales, P&L, platforms and every sale) and **Tax-year PDF** (gross receipts, deductions, expenses, mileage, estimated tax, quarterly payments and 1099-K comparison). Both open the print window; choose “Save as PDF”.
+- **Packing slips and thank-you cards:** select items → **Packing slips** (letter page or 4×6 label) or **Thank-you cards** (4×6), or use the buttons in an item's details. They carry your logo and a QR code to your shop link (Settings → Labels → Packing slips & thank-you cards). QR labels carry the brand too.
+- **Activity history:** every add, edit, sale, delete, import and undo is recorded with who did it (Settings → Business → *Your name on this device*). Recent activity is on the Dashboard; **View all** filters by person or type and can **Revert** a change. Items show “Last edited by”. With cloud sync on, history is shared between users (encrypted like everything else) and kept for one year. It needs the `activity` line in `firestore.rules`; republish the rules after updating.
 - **Reports:** profit and loss, estimated taxes (income, self-employment and optional sales tax) and assets (inventory at cost and at list value), for any date range.
 - **Excel export:** a formatted workbook with these sheets: Summary, Sales, Itemized Costs, Assets, Taxes (monthly), Expenses and Full Inventory. It includes live formulas and your logo.
 - **Import from other programs:** Restore and Import JSON also accept JSON backups made by other inventory programs. The app finds the records anywhere in the file, even when they're nested or keyed by ID. It matches the old field names to its own columns and reads US, ISO and timestamp dates, values like "$1,234.50" and sold flags written as yes/no or true/false. Fees or profit are turned into Total After Fees, and embedded photos are imported. You review the mapping and a preview with totals before anything is saved. The mapping is remembered for that file format, and re-importing updates matching records instead of duplicating them.
@@ -91,6 +96,9 @@ js/charts.js        Lightweight canvas charts
 js/reports.js       Calculations, Excel export and import
 js/celebrate.js     Sale celebration animation (canvas)
 js/labels.js        QR labels and camera scanning
+js/print.js         Branded PDF reports, packing slips and thank-you cards
+js/dash.js          Dashboard drawings (sparklines, rings, calendar, donut)
+fonts/pacifico.woff2  Script font for the wordmark (SIL Open Font License)
 js/cloud-sync.js    Encrypted Firebase cloud sync (live, per record)
 firebase-config.js  Your Firebase project's web settings (fill in once)
 firestore.rules     Security rules to paste into Firebase (not needed in the repo)
