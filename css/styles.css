@@ -1253,3 +1253,65 @@ svg.cal { width: auto; height: auto; }
 @media (prefers-reduced-motion: reduce) {
   .g-hero-art img, .g-spark, .gm-n, .g-spot { animation: none !important; }
 }
+
+/* ---------- fee updates ---------- */
+.fee-strip { margin: -4px 0 14px; }
+.fee-alert { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; background: color-mix(in srgb, var(--gold) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent); box-shadow: var(--shadow); animation: g-spot-in .4s var(--ease); }
+.fee-alert > div { flex: 1; font-size: 14px; } .fa-ico { font-size: 20px; }
+.fee-ok { padding: 2px 2px; }
+.fee-diffs { display: flex; flex-direction: column; gap: 10px; max-height: 58vh; overflow: auto; }
+.fee-diff { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); cursor: pointer; }
+.fee-diff.mine { border-style: dashed; }
+.fee-diff input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.fee-diff > div { flex: 1; min-width: 0; }
+.fd-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fee-diff ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; } .fee-diff s { color: var(--text-3); }
+.fee-diff details summary { cursor: pointer; color: var(--ink-text); margin-top: 6px; }
+.fee-new { padding: 10px 14px; border-radius: 12px; background: var(--surface-2); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13.5px; }
+
+/* ---------- cross-listing helper ---------- */
+.btn-xl svg { width: 15px; height: 15px; }
+.xl-top { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+.xl-ph { width: 74px; height: 74px; border-radius: 12px; overflow: hidden; background: var(--thumb-bg); flex: none; display: grid; place-items: center; font-size: 11px; color: var(--text-3); }
+.xl-ph img { width: 100%; height: 100%; object-fit: cover; }
+.xl-it { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; } .xl-it b { font-size: 16px; }
+.xl-prog { height: 7px; border-radius: 4px; background: var(--surface-3); overflow: hidden; margin-top: 4px; max-width: 360px; }
+.xl-prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--sold), #5cbf87); border-radius: 4px; transition: width .5s var(--ease); }
+.xl-plats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.xl-pl { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text); font: 600 13px var(--font); cursor: pointer; transition: all .15s; }
+.xl-pl:hover { border-color: var(--pc); }
+.xl-pl.on { background: color-mix(in srgb, var(--pc) 16%, var(--surface)); border-color: var(--pc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--pc) 30%, transparent); }
+.xl-pl.done i { font-style: normal; color: var(--sold); font-weight: 900; } .xl-pl em { font-style: normal; font-size: 11px; color: var(--text-3); }
+.xl-already { padding: 9px 12px; border-radius: 10px; background: var(--sold-bg); font-size: 13.5px; margin-bottom: 10px; }
+.xl-steps { list-style: none; counter-reset: xs; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.xl-steps > li { counter-increment: xs; position: relative; padding: 12px 14px 12px 52px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.xl-steps > li::before { content: counter(xs); position: absolute; left: 14px; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #fff; font: 800 13px var(--font); }
+.xl-sh { display: flex; flex-direction: column; margin-bottom: 8px; } .xl-sh b { font-size: 14.5px; }
+.xl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.xl-field { margin-bottom: 10px; }
+.xl-lab { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--text-2); margin-bottom: 4px; }
+.xl-cnt { font-variant-numeric: tabular-nums; color: var(--text-3); } .xl-cnt.over { color: var(--stale); }
+.xl-in { display: flex; gap: 8px; align-items: flex-start; }
+.xl-in input, .xl-in textarea { flex: 1; min-width: 0; }
+.xl-in textarea { resize: vertical; font: 13.5px/1.5 var(--font); }
+.xl-price input { max-width: 140px; flex: none; }
+.xl-note { margin: 0 0 8px; font-size: 13px; padding: 7px 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, var(--surface)); }
+.xl-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.xl-fact { border: 1px solid var(--line-2); background: var(--surface); border-radius: 9px; padding: 4px 10px; font: 600 13px var(--font); color: var(--text); cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; }
+.xl-fact span { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.xl-fact:hover { border-color: var(--ink); }
+.xl-warn { color: var(--stale); display: block; margin-top: 6px; }
+@media (max-width: 700px) {
+  .xl-steps > li { padding: 12px 12px 12px 44px; } .xl-steps > li::before { left: 10px; }
+  .xl-in { flex-direction: column; align-items: stretch; } .xl-price input { max-width: none; }
+}
+a.btn, a.btn:hover { text-decoration: none; }
+.g-xl { display: grid; grid-template-columns: auto 80px 1fr; align-items: center; gap: 14px; padding: 18px; border-radius: 16px; background: linear-gradient(120deg, color-mix(in srgb, var(--c) 9%, var(--surface)), var(--surface-2)); border: 1px solid var(--line); }
+.gx-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 14px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.gx-ph { width: 64px; height: 64px; border-radius: 10px; background: linear-gradient(150deg, #7fa7d6, #3a6ea5); }
+.gx-item b { font-size: 13px; } .gx-item em { font-style: normal; font-weight: 800; color: var(--ink-text); }
+.gx-arrows { display: flex; flex-direction: column; gap: 9px; } .gx-arrows i { height: 2px; background: linear-gradient(90deg, var(--line-2), var(--c)); border-radius: 2px; position: relative; }
+.gx-arrows i::after { content: ""; position: absolute; right: -1px; top: -3px; border: 4px solid transparent; border-left-color: var(--c); }
+.gx-sites { display: flex; flex-direction: column; gap: 6px; } .gx-sites span { padding: 6px 12px; border-radius: 10px; background: color-mix(in srgb, var(--c) 14%, var(--surface)); border-left: 4px solid var(--c); font-weight: 700; font-size: 13px; }
+.gx-cap { grid-column: 1 / -1; text-align: center; font-size: 13px; color: var(--text-2); }
+@media (max-width: 700px) { .g-xl { grid-template-columns: auto 40px 1fr; padding: 12px; } }
