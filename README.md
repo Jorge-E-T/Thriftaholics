@@ -4,6 +4,16 @@ A private, password-protected inventory, ordering and sales tracker that runs en
 
 ## Features
 
+- **Hauls:** Inventory → 🛍️ Hauls records a sourcing trip (store, date, receipt total, miles), adds the items in quick rows and spreads the cost by list price, evenly or by weight. Each haul shows paid vs earned and when it has paid for itself.
+- **Storage bins:** Inventory → 📦 Bins lists every storage location with counts and value, renames bins, and prints big bin labels whose QR code lists what's inside. Sales remind you which bin to pull from.
+- **Photos:** several photos per item with a cover photo, reordering, and an editor (rotate, square crop or square with white edges, brightness, contrast, auto-brighten). The cross-list helper saves them all.
+- **Offers, bundles, refunds:** log offers per item (with what you'd keep after fees); record several items as one bundle order with the total split between them; partial refunds, returns (back in stock) and refunds without return, all reflected in profit and reports.
+- **Price research:** one-tap searches of sold listings on eBay, Poshmark and Mercari (plus Depop and Google Shopping) from an item's details or editor.
+- **Search everything:** Ctrl+K / ⌘K (or the Search button) finds items, sales, expenses, settings and Guide topics, and runs commands.
+- **Action Center extras:** an inventory health score with fix-it lists, and a daily routine checklist with streaks (Settings → Daily routine).
+- **Shipping packages:** Settings → Shipping packages; choose one per item and its cost fills in when you pay shipping.
+- **Milestones & Year in Review:** badges on the Dashboard with a celebration when you earn one, and an animated yearly recap that saves as a branded PDF.
+- **First-launch tour:** a 60-second guided tour the first time the app opens (replay from the Guide).
 - **Guide tab:** a complete illustrated tutorial in 17 chapters, with a setup checklist that ticks itself off, search, “Mark as read” progress and **Show me** buttons that jump to the right screen and highlight the button to press.
 - **Inventory grid** with every column from the original spreadsheet: Item Name, Category, SKU, Purchase Price, Selling Price, Status, Platform it sold, Date Posted, Days Active (calculated), Date Sold and Total After Fees. It also adds Fees, Shipping Cost, Profit and Notes.
 - **Inline editing:** click any cell to edit it. Tab moves to the next cell, Enter saves, Esc cancels and Ctrl/⌘+Z undoes.
@@ -100,6 +110,7 @@ js/reports.js       Calculations, Excel export and import
 js/celebrate.js     Sale celebration animation (canvas)
 js/labels.js        QR labels and camera scanning
 platform-fees.json  Shared list of published marketplace fees (safe to keep public)
+js/ext-*.js         Add-on features (sales, stock, photos, tools, fun)
 js/guide.js         The Guide tab (tutorial, checklist, search)
 js/print.js         Branded PDF reports, packing slips and thank-you cards
 js/dash.js          Dashboard drawings (sparklines, rings, calendar, donut)
