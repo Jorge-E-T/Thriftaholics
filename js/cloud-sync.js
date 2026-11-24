@@ -12,7 +12,7 @@
   'use strict';
   const KINDS = ['items', 'expenses', 'mileage'];
   const COLLS = ['items', 'expenses', 'mileage', 'photos', 'app'];
-  const LOCAL_ONLY = ['sync', 'cloud', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil', 'updatedAt'];
+  const LOCAL_ONLY = ['sync', 'cloud', 'viewMode', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil', 'updatedAt'];
   const MAX_DOC = 900000;        // Firestore's limit is 1 MiB per document
   const LIB = ['lib/firebase/firebase-app-compat.js', 'lib/firebase/firebase-auth-compat.js', 'lib/firebase/firebase-firestore-compat.js'];
 

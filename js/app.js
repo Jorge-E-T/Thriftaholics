@@ -8,6 +8,7 @@
   /* ---------------- defaults ---------------- */
   const DEFAULT_SETTINGS = {
     companyName: 'My Resale Co.',
+    viewMode: 'auto',
     showName: true,
     tagline: 'Inventory & Sales Ledger',
     currency: 'USD',
@@ -124,7 +125,7 @@
       m[t] = { cls: 'f-first', order: -10 };
       return m;
     }
-    const isPhone = () => window.matchMedia('(max-width: 720px)').matches;
+    const isPhone = () => document.documentElement.classList.contains('cards-mode');
     const openCards = new Set();
     const photoOn = () => !!o.photo && !(o.hidden && o.hidden().includes('_photo'));
     const CAMERA = '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
@@ -1012,6 +1013,7 @@
   }
   function applyHeights() {
     const hs = S().tableHeights || {};
+    applyViewMode();
     $$('.table-wrap[data-rz]').forEach((w) => {
       if (!w.offsetParent) return; // hidden view
       const v = hs[w.dataset.rz] ?? 'fit';
@@ -1021,9 +1023,17 @@
       if (bar && bar.classList.contains('resize-bar')) {
         $$('[data-h]', bar).forEach((b) => b.classList.toggle('on', b.dataset.h === String(v)));
         $$('[data-rows]', bar).forEach((b) => b.classList.toggle('on', b.dataset.rows === S().rowSize));
+        $$('[data-viewmode]', bar).forEach((b) => b.classList.toggle('on', b.dataset.viewmode === (S().viewMode || 'auto')));
       }
     });
     $$('table.grid').forEach((t) => (t.dataset.rows = S().rowSize || 'comfortable'));
+  }
+  /** Table or card view: "auto" = cards on phones, table on computers (saved per device) */
+  function applyViewMode() {
+    const m = S().viewMode || 'auto';
+    const cards = m === 'cards' || (m !== 'table' && window.matchMedia('(max-width: 720px)').matches);
+    document.documentElement.classList.toggle('cards-mode', cards);
+    document.documentElement.classList.toggle('table-mode', !cards);
   }
   function setupResizable(wrap, key, { rows = false } = {}) {
     wrap.dataset.rz = key;
@@ -1031,15 +1041,18 @@
     bar.className = 'resize-bar';
     bar.innerHTML = `
       <div class="resize-grip" title="Drag to resize · double-click to fit the window"><span>Drag to resize</span></div>
-      <span class="rz-label">Window</span>
-      <div class="seg">${[['fit', 'Fit screen'], ['s', 'Small'], ['m', 'Medium'], ['l', 'Large']].map(([k, l]) => `<button type="button" data-h="${k}">${l}</button>`).join('')}</div>
-      ${rows ? `<span class="rz-label">Rows</span><div class="seg">${[['compact', 'Compact'], ['comfortable', 'Comfortable'], ['large', 'Large']].map(([k, l]) => `<button type="button" data-rows="${k}">${l}</button>`).join('')}</div>` : ''}`;
+      <span class="rz-label rz-h">Window</span>
+      <div class="seg rz-h">${[['fit', 'Fit screen'], ['s', 'Small'], ['m', 'Medium'], ['l', 'Large']].map(([k, l]) => `<button type="button" data-h="${k}">${l}</button>`).join('')}</div>
+      ${rows ? `<span class="rz-label rz-h rz-rows">Rows</span><div class="seg rz-h rz-rows">${[['compact', 'Compact'], ['comfortable', 'Comfortable'], ['large', 'Large']].map(([k, l]) => `<button type="button" data-rows="${k}">${l}</button>`).join('')}</div>
+      <span class="rz-label">View</span><div class="seg">${[['auto', 'Auto', 'Cards on phones, table on computers'], ['table', '☰ Table', 'Spreadsheet-style rows'], ['cards', '▦ Cards', 'Tap-to-open cards, like the phone app']].map(([k, l, t]) => `<button type="button" data-viewmode="${k}" title="${t}">${l}</button>`).join('')}</div>` : ''}`;
     wrap.after(bar);
     const save = (v) => { S().tableHeights = { ...(S().tableHeights || {}), [key]: v }; saveSettings(); applyHeights(); };
     bar.addEventListener('click', (e) => {
       const h = e.target.closest('[data-h]'); if (h) save(h.dataset.h);
       const r = e.target.closest('[data-rows]');
       if (r) { S().rowSize = r.dataset.rows; saveSettings(); applyHeights(); renderView(currentView()); }
+      const vm = e.target.closest('[data-viewmode]');
+      if (vm) { S().viewMode = vm.dataset.viewmode; saveSettings(); applyHeights(); renderView(currentView()); }
     });
     const grip = bar.querySelector('.resize-grip');
     grip.addEventListener('dblclick', () => save('fit'));
@@ -1902,7 +1915,7 @@
         else { if (puts.length) await Store.putMany(kind, puts); if (k.del.length) await Store.deleteMany(kind, k.del.map((d) => d.id)); }
       }
       await Store.putVault('tombstones', t);
-      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
+      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'viewMode', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
       if ('logo' in a) { state.logo = a.logo || null; await Store.putVault('logo', state.logo); }
       for (const p of a.photos.put) { await Store.putPhoto(p.id, { thumb: p.thumb, full: p.thumb, w: p.w, h: p.h }); state.thumbs[p.id] = { thumb: p.thumb, w: p.w, h: p.h }; }
       if (a.photos.del.length) { a.photos.del.forEach((id) => delete state.thumbs[id]); await Store.deletePhotos(a.photos.del); }
@@ -2463,7 +2476,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.23d';
+  const APP_VERSION = '2026.11.24';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
