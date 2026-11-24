@@ -409,7 +409,8 @@
       };
       const photoIds = new Set([...Object.keys(snap.photos || {}), ...Object.keys(mirror.photos)]);
       for (const id of photoIds) {
-        if (!liveItems.has(id)) { if (mirror.photos[id] && !(mirror.items[id] && !mirror.items[id].d)) ops.push({ coll: 'photos', id, data: null }); continue; }
+        const owner = id.split('~')[0]; // extra photos are stored as <itemId>~<n>
+        if (!liveItems.has(owner)) { if (mirror.photos[id] && !(mirror.items[owner] && !mirror.items[owner].d)) ops.push({ coll: 'photos', id, data: null }); continue; }
         await blob('photos', id, (snap.photos || {})[id], (p) => p.thumb, seen.photos,
           async (v) => { if (v) apply.photos.put.push({ id, ...v }); else apply.photos.del.push(id); },
           async (p) => p);

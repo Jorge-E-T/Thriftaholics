@@ -57,6 +57,7 @@
           ['📊', 'Excel Report', 'A formatted workbook with sales, costs, taxes and the whole inventory.'],
           ['☁', 'Sync pill', 'Shows cloud sync status: Off, Connecting…, Syncing…, Up to date, Offline. Click it to open sync settings.'],
           ['⌖', 'Scan', 'Opens the camera to read a QR label or barcode and jump to that item.'],
+          ['🔎', 'Search everything', 'Find any item, sale, expense, setting or Guide topic — or run a command like “new haul” or “backup”. Shortcut: Ctrl+K (⌘K on a Mac).'],
           ['🔒', 'Lock', 'Locks the app right away.'],
           ['↶', 'Undo / Redo', 'Always in the bottom-left corner, on every tab. It names the change it will undo; the little number shows how many steps you can go back.']
         ] },
@@ -83,6 +84,31 @@
           ['✍️', 'By hand', `Inventory → ${b('+ Add item', 'pri')}. Only the name is required — fill in the rest as you go.`, go('inventory', '#btnAddItem')]
         ] },
         { t: 'note', kind: 'good', html: 'Every import or restore saves a <b>safety snapshot</b> first (Settings → Safety snapshots). If something looks wrong, restore the snapshot and you’re back where you were.' }
+      ]
+    },
+    {
+      id: 'hauls', icon: '🛍️', color: '#c9952e', title: 'Hauls & storage bins',
+      lead: 'Record each sourcing trip in one go, see when it pays for itself — and always know which bin an item lives in.',
+      blocks: [
+        { t: 'steps', h: 'Log a haul when you get home', items: [
+          ['Open Hauls', `Inventory → <b>🛍️ Hauls</b> → <b>+ New haul</b>. ${go('inventory', '#btnHauls')}`],
+          ['Where and how much', 'Store, date and the <b>receipt total</b>. Add the miles you drove and a mileage trip is logged for you (round trip by default).'],
+          ['Type the items', 'One row each: name, category, size and list price — press Enter for the next row. Already added some items? Tick them under <i>Add items already in your inventory</i>.'],
+          ['Spread the cost', '<b>By list price</b> (a $40 jacket carries more of the cost than a $10 tee), <b>evenly</b>, or <b>by weight</b> — perfect for bins sold by the pound. The preview shows each item’s cost before you save.'],
+          ['Done', 'New items get the next SKUs, the store as their source, the date as their purchase date, and their share of the cost.']
+        ] },
+        { t: 'grid', h: 'Every haul shows', items: [
+          ['💵', 'Paid vs earned', 'What you paid, what the sold items brought in after fees, shipping and refunds, and the profit so far.'],
+          ['📊', 'Payback bar', 'Fills as items sell. When it’s full, the haul has paid for itself — and you earn the <b>Haul hero</b> milestone.'],
+          ['🧾', 'Item list', 'Every item with its status, cost share, price and profit. Click one to open it.'],
+          ['✏️', 'Edit any time', 'Add forgotten items, change the total or the split — costs are recalculated.']
+        ] },
+        { t: 'steps', h: 'Storage bins', items: [
+          ['Give items a home', 'Fill in <b>Storage location</b> (Bin 4, Shelf B, Tote 12) in the item editor — or select many and use <b>Set location…</b>.'],
+          ['See every bin', `Inventory → <b>📦 Bins</b> lists each bin with how many items are in it and their value. Click a bin to show just those items; <b>Rename</b> updates every item at once. ${go('inventory', '#btnBins')}`],
+          ['Print bin labels', 'Tick bins → <b>Print bin labels</b>. Each big label has the bin name and a QR code — scan it with your phone to list what’s inside.'],
+          ['When it sells', 'The app reminds you: “📦 Pull it from Bin 4”. Returned items remind you where they go back.']
+        ] }
       ]
     },
     {
@@ -120,6 +146,21 @@
       ]
     },
     {
+      id: 'photos', icon: '📸', color: '#3f7fb5', title: 'Photos',
+      lead: 'Several photos per item, a cover photo, and quick fixes — square crops, rotation and brightness — without leaving the app.',
+      blocks: [
+        { t: 'steps', h: 'Manage an item’s photos', items: [
+          ['Open the photo manager', 'Item details → <b>📷 Photos</b>. Drag pictures onto the window, click <b>＋ Add photos</b> (pick several at once), or <b>Take photo</b> on a phone.'],
+          ['Choose the cover', 'The first photo is the <b>★ Cover</b> — it appears in the table, gallery, labels, reports and Excel. Tap ★ on another photo to make it the cover.'],
+          ['Put them in order', '◀ ▶ move a photo; the order is the order you’ll upload them to marketplaces.'],
+          ['Edit a photo', '✎ opens the editor: rotate, <b>Square (crop)</b>, <b>Square (white edges)</b> to keep the whole item, brightness, contrast, and <b>✨ Auto-brighten</b> for dim thrift-store lighting.'],
+          ['Save them all', '<b>⬇ Save all</b> downloads every photo, named by SKU. The cross-list helper does the same for each site.']
+        ] },
+        { t: 'note', kind: 'tip', html: 'Poshmark and Depop show photos as squares. <b>Square (white edges)</b> keeps the whole garment in frame instead of cutting off sleeves or hems.' },
+        { t: 'note', kind: 'good', html: 'Photos are encrypted like everything else, included in backups, and shared through cloud sync as smaller copies.' }
+      ]
+    },
+    {
       id: 'listings', icon: '🔗', color: '#8a5a9e', title: 'Cross-listing on several sites',
       lead: 'One item, many marketplaces. The Cross-list helper gets each listing ready to paste, tracks where everything is live, and reminds you to delist the moment it sells.',
       blocks: [
@@ -145,7 +186,8 @@
           ['💲', 'Fee-aware price', 'Each site shows what you’d keep after its fees. <b>Use $X to keep $Y</b> suggests the price that pays you your full list price there.'],
           ['🔗', 'Link check', 'Paste a Poshmark link while eBay is selected and the helper warns you, so a listing is never filed under the wrong site.'],
           ['📈', 'Progress bar', '“Listed on 3 of 5 sites” — see at a glance where each item still needs to go.'],
-          ['✏️', 'Your rules', 'Every limit, hashtag count and sell-page link is editable per platform, so the helper keeps working when a site changes.']
+          ['✏️', 'Your rules', 'Every limit, hashtag count and sell-page link is editable per platform, so the helper keeps working when a site changes.'],
+          ['🔎', 'Price it right', 'Before you list, <b>Research sold prices</b> (in the item’s details and the editor) opens eBay, Poshmark and Mercari <b>sold</b> listings, plus Depop and Google Shopping, for that item. Edit the search words to narrow it down.']
         ] },
         { t: 'steps', h: 'When it sells — delisting', items: [
           ['Record the sale as usual', 'Mark it sold and choose the site it sold on. That site’s listing becomes <b>Sold</b>.'],
@@ -182,6 +224,30 @@
       ]
     },
     {
+      id: 'orders', icon: '🎁', color: '#c2413b', title: 'Offers, bundles & returns',
+      lead: 'Real orders are messy: buyers make offers, bundle several items, and sometimes send things back. The app handles all of it so profit stays honest.',
+      blocks: [
+        { t: 'steps', h: 'Offers', items: [
+          ['Log an offer', 'Item details → <b>+ Log an offer</b>: amount, site, date and status (Waiting, Countered, Accepted, Declined), plus your counter-offer.'],
+          ['See what it’s worth', 'As you type, the app shows what you’d keep after that site’s fees, your profit, and warns if it’s below your lowest acceptable price.'],
+          ['Accept and sell', 'Mark an offer <b>Accepted</b> and the app offers to record the sale. In the sale window, your offers appear as one-tap price buttons.']
+        ] },
+        { t: 'steps', h: 'Bundles — several items, one order', items: [
+          ['Select the items', 'Tick them in Inventory → <b>Mark sold…</b>.'],
+          ['Choose “One order (bundle)”', 'Enter the order total, the payout after fees (estimated for you) and the shipping you paid for the whole order.'],
+          ['Pick how to split it', 'In proportion to list prices (the usual choice), evenly, or in proportion to what you paid. The preview shows each item’s share and profit.'],
+          ['One order, correct totals', 'Each item records its share, so profit by item, category and brand stays right. Orders & Sales shows a <b>bundle ×3</b> tag, and each item’s details link to the others in the order.']
+        ] },
+        { t: 'steps', h: 'Refunds & returns', items: [
+          ['Open it', 'Orders & Sales → the <b>refund</b> icon on a sale, or <b>Refund / return</b> in a sold item’s details.'],
+          ['Partial refund', 'The buyer keeps the item and you give some money back. Profit drops by the refund plus any return shipping.'],
+          ['Returned — back in stock', 'The sale is reversed and the item becomes Available again (with a reminder of its bin). Return shipping you paid goes into Expenses.'],
+          ['Refunded — not coming back', 'The sale is reversed and the item is marked Lost, so its cost is written off in your taxes.']
+        ] },
+        { t: 'note', kind: 'good', html: 'Refunds and return shipping appear as their own line in the Reports P&amp;L, the Excel workbook and the PDF reports.' }
+      ]
+    },
+    {
       id: 'actions', icon: '✅', color: '#c2413b', title: 'The Action Center',
       lead: 'One tab for everything that needs you today. The number on the tab counts what’s waiting.',
       blocks: [
@@ -192,6 +258,10 @@
           ['🤔', 'Decide', 'Items listed longer than a year: <b>bundle</b>, <b>deep-discount</b>, <b>donate</b> (written off at cost in the P&L) or <b>keep</b> for 90 more days.'],
           ['🧾', 'Estimated taxes', 'The next quarterly payment, its due date and the estimated amount.'],
           ['💾', 'Backups', 'How long since your last backup, with a button to make one.']
+        ] },
+        { t: 'grid', h: 'At the top of the Action Center', items: [
+          ['💯', 'Inventory health', 'A score out of 100 for how complete your unsold items are: cost, price, photo, size, brand, measurements, a live listing, listing links and a storage bin. Each gap is a button that lists the items to fix — click one to fix it.'],
+          ['☀️', 'Today’s routine', 'Your daily checklist — share your closet, send offers, relist, list new items, ship orders. Tick them off; finish them all to build a 🔥 streak. Edit the tasks in Settings → Daily routine.']
         ] },
         { t: 'go', html: go('settings', '#mdSteps', 'Set up my selling plan') + go('actions', '', 'Open the Action Center') }
       ]
@@ -248,7 +318,9 @@
           ['🏆', 'Best sellers', 'Your most profitable items with photos. Click one for details.'],
           ['⏳', 'Aging & stale', 'How old your inventory is, and the items that need attention most.'],
           ['🕘', 'Recent activity', 'Who changed what, most recent first. <b>View all</b> opens the full history.'],
-          ['🗃️', 'By category', 'Stock, cost, list value, sold and profit for each category.']
+          ['🗃️', 'By category', 'Stock, cost, list value, sold and profit for each category.'],
+          ['🏆', 'Milestones', 'Badges for sales (first sale up to 1,000), best months, total profit, cross-listing, bundles, hauls, a spotless inventory and routine streaks — with your progress toward the next ones. A new one pops up with confetti.'],
+          ['✨', 'Year in Review', 'A full-screen, animated recap of your year: items sold, sales and profit, best month, top brand and category, flip of the year, fastest sale, where it sold, your lucky day and the milestones you unlocked. <b>Save as PDF</b> makes a branded one-page summary to share.']
         ] }
       ]
     },
@@ -351,7 +423,9 @@
           ['💱', 'Currency', 'How money is shown.'],
           ['🎉', 'Celebration', 'Turn the sale celebration on or off; preview it.'],
           ['📉', 'Selling plan', 'Price-drop steps, days between drops, rounding (cents, whole dollars, .99), relist and decide timing, deep discount.'],
-          ['🎯', 'Goals', 'Monthly sales, profit and items sold.']
+          ['🎯', 'Goals', 'Monthly sales, profit and items sold.'],
+          ['📦', 'Shipping packages', 'Your usual packages (poly mailers, boxes) with their weight and what shipping one costs you. Choose one per item; when you sell on a site where you pay shipping, the cost fills in for you.'],
+          ['☀️', 'Daily routine', 'Turn the routine on or off and write your own tasks.']
         ] }
       ]
     },
@@ -371,6 +445,9 @@
           ['A title is cut off.', 'It was trimmed to that site’s title limit. Edit it in the helper, or change the limit in Platforms → Edit if the site allows more.'],
           ['Can two items have the same SKU?', 'Yes. Every item has its own hidden ID, so sales, profit, photos and sync keep them apart. The app just helps you notice: the SKU shows a small <b>×2</b> badge, the editor says which other item uses it, and Inventory → <b>⚠ Duplicate SKUs</b> (in the age filter) lists them all. QR labels open the exact item, and typing or scanning a shared SKU asks which one you mean.'],
           ['I made a mistake. How do I take it back?', 'Click <b>Undo</b> in the bottom-left corner (or press Ctrl/⌘ + Z) — as many times as you need, up to 50 steps. Went one too far? <b>Redo</b>. Undo remembers what <b>you</b> did on <b>this device</b> since you unlocked the app; for older changes, or something someone else did, use <b>Revert</b> in the activity history (Dashboard → Recent activity → View all).'],
+          ['A buyer bought three items together. How do I record it?', 'Select the three items → <b>Mark sold…</b> → <b>One order (bundle)</b>. Enter the order total; the app splits it between the items.'],
+          ['Where did my photo go after I edited it?', 'It replaced the original. If you want both, add the photo again before editing one copy.'],
+          ['How do I replay the tour?', 'Guide tab → <b>▶ Take the 60-second tour</b>, or search “tour” with Ctrl+K.'],
           ['I imported the wrong file.', 'Settings → Safety snapshots → restore the snapshot from just before the import.'],
           ['Labels print the wrong size.', 'In the print window set scale to <b>Actual size / 100%</b>, margins to <b>Default</b>, and check the label format in Settings.'],
           ['Where are the PDFs saved?', 'Wherever you choose in the print window after picking <b>Save as PDF</b> (usually Downloads).'],
@@ -455,6 +532,7 @@
           <div class="g-kicker">The complete guide</div>
           <h2><span class="script">Welcome to Thriftaholics</span></h2>
           <p>Everything this app can do — from your first item to tax time — in ${CH.length} short chapters. Read it top to bottom, jump to what you need, or search.</p>
+          <div class="g-hero-btns"><button type="button" class="g-tourbtn" data-tour>▶ Take the 60-second tour</button></div>
           <div class="g-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><input type="search" id="gSearch" placeholder="Search the guide — try “label”, “fees” or “backup”" autocomplete="off"><span id="gCount" class="g-count"></span></div>
         </div>
       </header>
@@ -571,6 +649,7 @@
       root.innerHTML = shell();
       updateReadCount(root);
       root.addEventListener('click', (e) => {
+        if (e.target.closest('[data-tour]')) { if (window.Ext && Ext.startTour) Ext.startTour(true); return; }
         const g = e.target.closest('[data-go]');
         if (g) { e.preventDefault(); goTo(g.dataset.go, g.dataset.spot); return; }
         const d = e.target.closest('[data-done]');

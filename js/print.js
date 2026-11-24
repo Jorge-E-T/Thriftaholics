@@ -103,7 +103,7 @@
       <div class="two"><div><h3>Profit &amp; loss</h3><table>
         <tr><td>Gross sales</td><td class="n">${U.money(m.gross)}</td></tr><tr><td>Platform fees</td><td class="n">−${U.money(m.fees)}</td></tr>
         <tr class="sub"><td>Net sales</td><td class="n">${U.money(m.net)}</td></tr><tr><td>Cost of goods sold</td><td class="n">−${U.money(m.cogs)}</td></tr>
-        <tr><td>Shipping</td><td class="n">−${U.money(m.shipping)}</td></tr><tr><td>Expenses</td><td class="n">−${U.money(m.expenseTotal)}</td></tr>
+        <tr><td>Shipping</td><td class="n">−${U.money(m.shipping)}</td></tr>${m.refunds ? `<tr><td>Refunds &amp; return shipping</td><td class="n">−${U.money(m.refunds)}</td></tr>` : ''}<tr><td>Expenses</td><td class="n">−${U.money(m.expenseTotal)}</td></tr>
         ${m.mileageDeduction ? `<tr><td>Mileage (${U.int(m.miles)} mi)</td><td class="n">−${U.money(m.mileageDeduction)}</td></tr>` : ''}
         <tr class="tot"><td>Net profit</td><td class="n ${m.netProfit < 0 ? 'neg' : ''}">${U.money(m.netProfit)}</td></tr></table></div>
         <div><h3>By platform</h3>${plat.length ? `<table><tr><th>Platform</th><th class="n">Sold</th><th class="n">Gross</th><th class="n">Profit</th></tr>${plat.map(([k, r]) => `<tr><td>${esc(k)}</td><td class="n">${r.n}</td><td class="n">${U.money(r.g)}</td><td class="n">${U.money(r.p)}</td></tr>`).join('')}</table>` : '<p class="muted">No sales this month.</p>'}
@@ -127,6 +127,7 @@
         <tr><td>Platform selling &amp; processing fees</td><td class="n">${U.money(m.fees)}</td></tr>
         <tr><td>Cost of goods sold (${m.soldCount} items)</td><td class="n">${U.money(m.cogs)}</td></tr>
         <tr><td>Shipping paid</td><td class="n">${U.money(m.shipping)}</td></tr>
+        ${m.refunds ? `<tr><td>Refunds &amp; return shipping</td><td class="n">${U.money(m.refunds)}</td></tr>` : ''}
         <tr class="sub"><td>Gross profit</td><td class="n">${U.money(m.grossProfit)}</td></tr></table>
       <div class="two"><div><h3>Business expenses</h3>${exps.length ? `<table>${exps.map(([k, v]) => `<tr><td style="text-transform:capitalize">${esc(k)}</td><td class="n">${U.money(v)}</td></tr>`).join('')}<tr class="tot"><td>Total expenses</td><td class="n">${U.money(m.expenseTotal)}</td></tr></table>` : '<p class="muted">No expenses recorded.</p>'}
           ${m.miles ? `<h3>Vehicle mileage</h3><table><tr><td>Business miles</td><td class="n">${U.int(m.miles)}</td></tr><tr><td>Standard mileage deduction</td><td class="n">${U.money(m.mileageDeduction)}</td></tr></table>` : ''}

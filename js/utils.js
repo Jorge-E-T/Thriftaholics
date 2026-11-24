@@ -170,8 +170,10 @@
   U.modal = ({ title, body, buttons = [], onOpen, wide }) => new Promise((resolve) => {
     const m = U.$('#modal');
     U.$('#modalTitle').textContent = title;
-    const bodyEl = U.$('#modalBody');
-    bodyEl.innerHTML = '';
+    // a fresh body element each time, so click handlers from earlier dialogs can't fire here
+    const oldBody = U.$('#modalBody');
+    const bodyEl = oldBody.cloneNode(false);
+    oldBody.replaceWith(bodyEl);
     if (typeof body === 'string') bodyEl.innerHTML = body; else if (body) bodyEl.appendChild(body);
     const foot = U.$('#modalFoot');
     foot.innerHTML = '';

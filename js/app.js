@@ -45,6 +45,22 @@
     labelFormat: 'avery5160',
     shopUrl: '', socialHandle: '', slipFormat: 'letter',
     thankYouMessage: 'Thank you for shopping secondhand with us. We hope you love it!',
+    packages: [
+      { id: 'pk-poly8', name: 'Poly mailer · up to 8 oz', oz: 8, cost: null },
+      { id: 'pk-poly16', name: 'Poly mailer · up to 1 lb', oz: 16, cost: null },
+      { id: 'pk-box2', name: 'Small box · up to 2 lb', oz: 32, cost: null },
+      { id: 'pk-box5', name: 'Medium box · up to 5 lb', oz: 80, cost: null }
+    ],
+    routineOn: true,
+    routine: [
+      { id: 'rt-share', text: 'Share your Poshmark closet', on: true },
+      { id: 'rt-offers', text: 'Send offers to likers / watchers', on: true },
+      { id: 'rt-relist', text: 'Refresh or relist 5 stale items', on: true },
+      { id: 'rt-new', text: 'List 3 new items', on: true },
+      { id: 'rt-ship', text: 'Ship today’s orders', on: true }
+    ],
+    routineDone: {},
+    milestones: {},
     invSort: [{ key: 'datePosted', dir: 'desc' }],
     ordSort: [{ key: 'dateSold', dir: 'desc' }],
     expSort: [{ key: 'date', dir: 'desc' }]
@@ -91,6 +107,7 @@
     if (dels.length) { const t = (state.meta.tombstones ||= {}); t[kind] = { ...(t[kind] || {}) }; dels.forEach((id) => { t[kind][id] = Date.now(); }); Store.putVault('tombstones', t).catch(() => {}); }
     puts.forEach((r) => { const t = state.meta.tombstones && state.meta.tombstones[kind]; if (t && t[r.id]) delete t[r.id]; });
     if (log) logActivity(kind, before, changes, label, who);
+    if (window.Ext && Ext.afterCommit) Ext.afterCommit(kind, changes, label);
     if (window.Sync) Sync.changed();
     if (undoable) { state.undo.push({ kind, before, label, ids: changes.map((c) => c.id) }); if (state.undo.length > 50) state.undo.shift(); if (!keepRedo) state.redo = []; }
     updateUndoUI();
@@ -650,6 +667,11 @@
       priceHistory: Array.isArray(raw.priceHistory) ? raw.priceHistory.filter((h) => h && h.date) : [],
       markdownStep: +raw.markdownStep || 0, lastMarkdown: U.toISO(raw.lastMarkdown || ''), lastRelisted: U.toISO(raw.lastRelisted || ''),
       disposedDate: U.toISO(raw.disposedDate || ''), decideSnooze: U.toISO(raw.decideSnooze || ''), bundle: !!raw.bundle,
+      photos: Array.isArray(raw.photos) ? raw.photos.filter((x) => typeof x === 'string') : [],
+      offers: Array.isArray(raw.offers) ? raw.offers.filter((o) => o && o.amount != null).map((o) => ({ id: o.id || U.uid(), date: U.toISO(o.date || '') || U.todayISO(), platform: String(o.platform || '').toLowerCase(), amount: U.num(o.amount) ?? 0, status: o.status || 'pending', counter: U.num(o.counter), note: String(o.note || '') })) : [],
+      refunds: Array.isArray(raw.refunds) ? raw.refunds.filter(Boolean).map((r) => ({ id: r.id || U.uid(), date: U.toISO(r.date || '') || U.todayISO(), amount: U.num(r.amount) ?? 0, returnShip: U.num(r.returnShip) ?? 0, note: String(r.note || '') })) : [],
+      orderId: String(raw.orderId || ''), orderSize: +raw.orderSize || 0,
+      haulId: String(raw.haulId || ''), pkg: String(raw.pkg || ''),
       createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now(), editedBy: String(raw.editedBy || '')
     });
     return it;
@@ -731,6 +753,7 @@
     open: '<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 9h16M8 13h5M8 16h8"/></svg>',
     camera: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
     back: '<svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg>',
+    refund: '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v8M9.5 10.5c0-1 1-1.5 2.5-1.5s2.5.6 2.5 1.6c0 2.3-5 1.2-5 3.4 0 1 1 1.6 2.5 1.6s2.5-.5 2.5-1.5"/></svg>',
     xlist: '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 10.8l7.4-3.6M8.3 13.2l7.4 3.6"/></svg>'
   };
   const statusBadge = (s) => { const k = (s || '').toLowerCase(); return `<span class="badge ${k === 'sold' ? 'b-sold' : k === 'available' ? 'b-available' : 'b-other'}">${esc(s || '—')}</span>`; };
@@ -875,7 +898,7 @@
   }
   function duplicateItems(list) {
     let sku = parseInt(nextSku(), 10);
-    const copies = list.map((it) => ({ ...U.clone(it), id: U.uid(), sku: String(sku++), status: 'available', dateSold: '', platform: '', totalAfterFees: null, listings: [], datePosted: U.todayISO(), name: it.name + ' (copy)', createdAt: Date.now() }));
+    const copies = list.map((it) => ({ ...U.clone(it), id: U.uid(), sku: String(sku++), status: 'available', dateSold: '', platform: '', orderId: '', orderSize: 0, refunds: [], totalAfterFees: null, listings: [], datePosted: U.todayISO(), name: it.name + ' (copy)', createdAt: Date.now() }));
     commit('items', copies.map((c) => ({ id: c.id, after: c })), { label: 'duplicate' });
     copies.forEach((c, i) => {
       const src = list[i].id;
@@ -954,12 +977,14 @@
             <label class="field"><span>Condition</span><input name="condition" list="dlCond" value="${esc(it.condition)}"></label>
             <label class="field"><span>Measurements</span><input name="measurements" value="${esc(it.measurements)}" placeholder="e.g. pit-to-pit 20in, length 26in"></label>
             <label class="field"><span>Weight</span><input name="weight" value="${esc(it.weight)}" placeholder="e.g. 12 oz"></label>
+            <label class="field"><span>Package</span><select name="pkg"><option value="">—</option>${(S().packages || []).map((p) => `<option value="${esc(p.id)}" ${it.pkg === p.id ? 'selected' : ''}>${esc(p.name)}${p.cost != null && p.cost !== '' ? ' · ' + esc(U.money(p.cost)) : ''}</option>`).join('')}</select></label>
             <label class="field"><span>Storage location</span><input name="location" list="dlLoc" value="${esc(it.location)}" placeholder="e.g. Bin 4, Shelf B"></label>
             <label class="field"><span>Source (where you bought it)</span><input name="source" list="dlSrc" value="${esc(it.source)}" placeholder="e.g. Goodwill Main St"></label>
             <label class="field"><span>Purchase date</span><input type="date" name="purchaseDate" value="${esc(it.purchaseDate)}"></label>
             <label class="field"><span>Lowest acceptable price</span><input name="minPrice" inputmode="decimal" value="${numVal(it.minPrice)}" placeholder="for offers & markdowns"></label>
           </div>
         </div>
+        <div class="span-2" data-research></div>
         <div class="span-2" data-listings></div>
         <div class="span-2 det-box">
           <div class="lst-head"><b>Listing text</b><span class="muted small">from your templates (Settings → Listing templates)</span></div>
@@ -991,8 +1016,11 @@
     const readDetails = () => {
       const g = (n) => body.querySelector(`[name="${n}"]`).value.trim();
       return { brand: g('brand'), size: g('size'), color: g('color'), condition: g('condition'), measurements: g('measurements'), weight: g('weight'),
-        location: g('location'), source: g('source'), purchaseDate: g('purchaseDate'), minPrice: g('minPrice') === '' ? null : U.round2(U.num(g('minPrice')) ?? 0) };
+        location: g('location'), source: g('source'), purchaseDate: g('purchaseDate'), minPrice: g('minPrice') === '' ? null : U.round2(U.num(g('minPrice')) ?? 0), pkg: g('pkg') };
     };
+    const researchBox = body.querySelector('[data-research]');
+    const researchRefresh = () => { if (window.Ext && Ext.researchHtml) researchBox.innerHTML = Ext.researchHtml({ ...read(), ...readDetails() }, true); };
+    researchRefresh(); body.addEventListener('change', (e) => { if (['name', 'brand', 'size', 'category'].includes(e.target.name)) researchRefresh(); });
     const tplRefresh = () => { const x = { ...read(), ...readDetails() }; body.querySelector('[data-tpl=title]').value = fillTemplate(S().templates.title, x); body.querySelector('[data-tpl=desc]').value = fillTemplate(S().templates.description, x); };
     body.addEventListener('input', tplRefresh); tplRefresh();
     body.addEventListener('click', async (e) => {
@@ -1109,25 +1137,33 @@
           <button class="btn btn-primary btn-sm" data-sh="edit">${ICON.edit} Edit all fields</button>
           ${sold ? `<button class="btn btn-sm" data-sh="slip">Packing slip</button><button class="btn btn-sm" data-sh="thanks">Thank-you card</button>` : `<button class="btn btn-gold btn-sm" data-sh="sold">${ICON.sold} Mark sold</button>`}
           ${sold ? '' : `<button class="btn btn-sm btn-xl" data-sh="xlist">${ICON.xlist} Cross-list</button>`}
+          <button class="btn btn-sm" data-sh="photos">📷 Photos${(it.photos || []).length ? ' (' + ((it.photos || []).length + (state.thumbs[it.id] ? 1 : 0)) + ')' : ''}</button>
+          ${sold ? `<button class="btn btn-sm" data-sh="refund">Refund / return</button>` : ''}
           <button class="btn btn-sm" data-sh="label">QR label</button>
           <button class="btn btn-sm btn-ghost" data-sh="dup">${ICON.dup} Duplicate</button>
         </div>
         ${edited}
       </div>
+      ${window.Ext && Ext.sheetTop ? Ext.sheetTop(it) : ''}
       <div class="sh-card"><h4>Where the money goes</h4>${moneyFlow(it)}</div>
       <div class="sh-card"><h4>Timeline</h4>${itemTimeline(it)}</div>
       ${(it.priceHistory || []).length ? `<div class="sh-card sh-wide"><h4>Price history</h4>${priceChart(it)}</div>` : ''}
       ${it.notes || it.description ? `<div class="sh-card sh-wide"><h4>Notes</h4><div class="sh-notes">${esc(it.description || '')}${it.description && it.notes ? '<br><br>' : ''}${esc(it.notes || '')}</div></div>` : ''}
+      ${window.Ext && Ext.sheetBottom ? Ext.sheetBottom(it) : ''}
     </div>`;
     const go = await U.modal({
       title: it.name || 'Item', wide: 'xl', body, buttons: [{ label: 'Close', value: null, cls: 'btn-ghost' }],
-      onOpen: (b) => b.addEventListener('click', (e) => { const a = e.target.closest('[data-sh]'); if (a) U.closeModal(a.dataset.sh); })
+      onOpen: (b) => {
+        b.addEventListener('click', (e) => { const a = e.target.closest('[data-sh]'); if (a) U.closeModal(a.dataset.sh); });
+        b.querySelectorAll('.sh-strip img[data-ph]').forEach((im) => im.addEventListener('click', () => { const main = b.querySelector('.sh-photo img'); if (main) main.src = im.dataset.full || im.src; b.querySelectorAll('.sh-strip img').forEach((x) => x.classList.toggle('on', x === im)); }));
+      }
     });
     if (go === 'edit') itemDialog(it);
     else if (go === 'sold') markSoldDialog([it]);
     else if (go === 'dup') duplicateItems([it]);
     else if (go === 'label') Labels.print([it], labelCtx());
     else if (go === 'xlist') crossListDialog([it]);
+    else if (go && window.Ext && Ext.sheetAction) Ext.sheetAction(go, it);
     else if (go === 'slip' && typeof Print !== 'undefined') Print.packingSlip([it], printCtx());
     else if (go === 'thanks' && typeof Print !== 'undefined') Print.thankYou([it], printCtx());
     else if (go === 'photo') { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = async () => { if (inp.files[0]) { await setPhoto(it, inp.files[0]); openItemSheet(it.id); } }; inp.click(); }
@@ -1211,7 +1247,7 @@
         ${L && L.status === 'active' ? `<div class="xl-already">✓ Already listed on ${esc(p.name)}${L.url ? ` — <a href="${esc(L.url)}" target="_blank" rel="noopener noreferrer">open the listing ↗</a>` : ''}. You can still copy the details or update the link below.</div>` : ''}
         <ol class="xl-steps">
           <li><div class="xl-sh"><b>Save the photo</b><span class="muted small">Upload it on ${esc(p.name)}${/depop|poshmark/i.test(p.name) ? ' (square photos look best there)' : ''}.</span></div>
-            <div class="xl-row">${photo ? `<button type="button" class="btn btn-sm" data-xa="dl">⬇ Save photo</button>${navigator.canShare ? '<button type="button" class="btn btn-sm" data-xa="share">Share / save to Photos</button>' : ''}` : '<span class="muted small">No photo yet — add one from the item’s details, or use your phone’s photos directly.</span>'}</div></li>
+            <div class="xl-row">${photo ? `<button type="button" class="btn btn-sm" data-xa="dl">⬇ Save ${window.Ext && Ext.photoKeys && Ext.photoKeys(cur).length > 1 ? 'all ' + Ext.photoKeys(cur).length + ' photos' : 'photo'}</button>${navigator.canShare ? '<button type="button" class="btn btn-sm" data-xa="share">Share / save to Photos</button>' : ''}` : '<span class="muted small">No photo yet — add one from the item’s details, or use your phone’s photos directly.</span>'}</div></li>
           <li><div class="xl-sh"><b>Open ${esc(p.name)}</b><span class="muted small">Starts a new listing in another tab — keep this window open.</span></div>
             <div class="xl-row">${sell ? `<a class="btn btn-primary btn-sm" href="${esc(U.normUrl(sell))}" target="_blank" rel="noopener noreferrer" data-xa="open">Open ${esc(p.name)} “sell” page ↗</a>` : `<span class="muted small">No link saved for ${esc(p.name)} — add its “Sell an item” page in Platforms → Edit.</span>`}</div></li>
           <li><div class="xl-sh"><b>Copy &amp; paste the details</b><span class="muted small">Edit here first if you like — changes are just for this listing.</span></div>
@@ -1270,8 +1306,9 @@
       const a = e.target.closest('[data-xa]'); if (!a) return;
       const p = targets.find((x) => x.id === pid);
       const fname = `${U.slug(cur.sku || cur.name || 'item')}.jpg`;
-      if (a.dataset.xa === 'dl') { const link = document.createElement('a'); link.href = photo; link.download = fname; document.body.appendChild(link); link.click(); link.remove(); }
-      if (a.dataset.xa === 'share') { try { const blob = await (await fetch(photo)).blob(); const file = new File([blob], fname, { type: blob.type || 'image/jpeg' }); if (navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: cur.name }); else U.toast('This device can’t share photos — use Save photo instead'); } catch (_) { /* cancelled */ } }
+      const allPh = window.Ext && Ext.photoFiles ? await Ext.photoFiles(cur) : [{ name: fname, data: photo }];
+      if (a.dataset.xa === 'dl') allPh.forEach((p, i) => setTimeout(() => { const link = document.createElement('a'); link.href = p.data; link.download = p.name; document.body.appendChild(link); link.click(); link.remove(); }, i * 350));
+      if (a.dataset.xa === 'share') { try { const files = await Promise.all(allPh.map(async (p) => { const blob = await (await fetch(p.data)).blob(); return new File([blob], p.name, { type: blob.type || 'image/jpeg' }); })); if (navigator.canShare({ files })) await navigator.share({ files, title: cur.name }); else U.toast('This device can’t share photos — use Save photos instead'); } catch (_) { /* cancelled */ } }
       if (a.dataset.xa === 'keep') { draft.price = a.dataset.v; draw(); }
       if (a.dataset.xa === 'all') copyText([p.noTitle ? '' : draft.title, draft.desc, draft.price !== '' ? 'Price: ' + U.money(U.num(draft.price)) : ''].filter(Boolean).join('\n\n'), 'Everything');
       if (a.dataset.xa === 'mark') markListed();
@@ -1294,7 +1331,19 @@
     const body = document.createElement('div');
     body.innerHTML = `
       ${pick ? `<label class="field"><span>Item *</span><select name="item"><option value="">Choose an unsold item…</option>${avail.map((x) => `<option value="${esc(x.id)}">${esc((x.sku ? '#' + x.sku + ' · ' : '') + x.name)} — ${esc(U.money(x.sellingPrice))}</option>`).join('')}</select></label>` : ''}
-      ${!single ? `<p class="muted">Marking <b>${list.length}</b> items as sold. Each keeps its own selling price.</p><label class="check"><input type="checkbox" name="fillEst" checked> Fill in Total After Fees with each item’s estimated payout (from the platform’s fee settings)</label>` : ''}
+      ${!single ? `<div class="bundle-pick">
+          <label class="radio-card"><input type="radio" name="mode" value="each" checked><span><b>Separate sales</b><em>Each item sold on its own and keeps its own price.</em></span></label>
+          <label class="radio-card"><input type="radio" name="mode" value="bundle"><span><b>One order (bundle)</b><em>The buyer bought all ${list.length} together — enter the order total and the app splits it.</em></span></label></div>
+        <div data-each><label class="check"><input type="checkbox" name="fillEst" checked> Fill in Total After Fees with each item’s estimated payout (from the platform’s fee settings)</label></div>
+        <div data-bundle class="hidden">
+          <div class="form-grid g3">
+            <label class="field"><span>Order total (what the buyer paid for the items)</span><input name="bTotal" inputmode="decimal" value="${U.round2(list.reduce((a, x) => a + (+x.sellingPrice || 0), 0))}"></label>
+            <label class="field"><span>Order payout (after fees)</span><input name="bNet" inputmode="decimal" placeholder="estimated from fees"></label>
+            <label class="field"><span>Shipping you paid (whole order)</span><input name="bShip" inputmode="decimal" placeholder="0"></label>
+          </div>
+          <label class="field"><span>Split the order between the items</span><select name="bSplit"><option value="price">In proportion to their list prices</option><option value="even">Evenly</option><option value="cost">In proportion to what you paid</option></select></label>
+          <div class="bundle-prev" data-bprev></div>
+        </div>` : ''}
       ${it && (it.listings || []).length ? `<div class="sold-on">Listed on: ${(it.listings || []).map((l) => `<button type="button" class="chip-btn" data-plat="${esc(l.platform)}" style="--c:${platformColor(l.platform)}">${esc(platformLabel(l.platform))}</button>`).join('')}</div>` : ''}
       <div class="form-grid">
         <label class="field"><span>Platform it sold</span><input name="platform" list="dlPlat2" value="${esc(platformLabel(it?.platform || (it?.listings || [])[0]?.platform || ''))}"></label>
@@ -1343,10 +1392,50 @@
       if (e.target.name === 'totalAfterFees') netTouched = e.target.value.trim() !== '';
       if (e.target.name === 'shippingCost') { shipTouched = true; delete e.target.dataset.auto; }
       if (['platform', 'sellingPrice', 'totalAfterFees'].includes(e.target.name)) estimate();
-      calc();
+      if (e.target.name === 'bNet') bNetTouched = e.target.value.trim() !== '';
+      calc(); bundlePrev();
     });
+    let bNetTouched = false;
+    const splitShares = (total, how) => {
+      const w = list.map((x) => how === 'even' ? 1 : how === 'cost' ? (+x.purchasePrice || 0) : (+x.sellingPrice || 0));
+      const sum = w.reduce((a, b) => a + b, 0) || list.length;
+      const ws = w.map((x) => (sum === list.length && !w.some(Boolean) ? 1 : x));
+      const tot = ws.reduce((a, b) => a + b, 0);
+      const raw = ws.map((x) => U.round2(total * x / tot));
+      const diff = U.round2(total - raw.reduce((a, b) => a + b, 0)); raw[raw.length - 1] = U.round2(raw[raw.length - 1] + diff);
+      return raw;
+    };
+    const bundlePrev = () => {
+      if (single || !f('mode')) return;
+      const bundle = body.querySelector('[name=mode]:checked').value === 'bundle';
+      body.querySelector('[data-each]').classList.toggle('hidden', bundle);
+      body.querySelector('[data-bundle]').classList.toggle('hidden', !bundle);
+      if (!bundle) return;
+      const total = U.num(f('bTotal').value) || 0;
+      const prof = profileFor(f('platform').value.trim());
+      if (!bNetTouched) f('bNet').value = prof ? Calc.platformEstimate(prof, total).payout.toFixed(2) : '';
+      const net = U.num(f('bNet').value) ?? total, ship = U.num(f('bShip').value) || 0, how = f('bSplit').value;
+      const P = splitShares(total, how), N = splitShares(net, how), Sh = splitShares(ship, how);
+      const profit = U.round2(net - ship - list.reduce((a, x) => a + (+x.purchasePrice || 0), 0));
+      body.querySelector('[data-bprev]').innerHTML = `<table class="mini-t"><tr><th>Item</th><th class="n">Price share</th><th class="n">Payout</th><th class="n">Profit</th></tr>${list.map((x, i) => `<tr><td>${esc(x.name)}</td><td class="n">${U.money(P[i])}</td><td class="n">${U.money(N[i])}</td><td class="n">${U.money(N[i] - Sh[i] - (+x.purchasePrice || 0))}</td></tr>`).join('')}<tr class="tot"><td>Order</td><td class="n">${U.money(total)}</td><td class="n">${U.money(net)}</td><td class="n">${U.money(profit)}</td></tr></table>`;
+    };
+    body.addEventListener('change', (e) => { if (['mode', 'bSplit'].includes(e.target.name)) bundlePrev(); });
     body.addEventListener('click', (e) => { const b = e.target.closest('[data-plat]'); if (b) { f('platform').value = platformLabel(b.dataset.plat); estimate(); calc(); } });
-    estimate(); calc();
+    // offers on this item → one tap fills the price
+    if (single && it && (it.offers || []).some((o) => o.status !== 'declined')) {
+      const box = document.createElement('div'); box.className = 'offer-fill';
+      box.innerHTML = `<span class="muted small">Offers:</span> ${(it.offers || []).filter((o) => o.status !== 'declined').slice(-4).map((o) => `<button type="button" class="chip-btn" data-offer="${esc(o.counter ?? o.amount)}" data-oplat="${esc(o.platform)}">${esc(U.money(o.counter ?? o.amount))}${o.platform ? ' · ' + esc(platformLabel(o.platform)) : ''}${o.status === 'accepted' ? ' ✓' : ''}</button>`).join(' ')}`;
+      body.insertBefore(box, body.querySelector('.form-grid'));
+      box.addEventListener('click', (e) => { const b = e.target.closest('[data-offer]'); if (!b) return; f('sellingPrice').value = b.dataset.offer; if (b.dataset.oplat) f('platform').value = platformLabel(b.dataset.oplat); netTouched = false; estimate(); calc(); });
+    }
+    // the item's package → shipping cost when you pay shipping on that site
+    const pkgShip = () => {
+      if (!single || !target || shipTouched) return;
+      const pk = (S().packages || []).find((p) => p.id === target.pkg); const prof = profileFor(f('platform').value.trim());
+      if (pk && pk.cost != null && pk.cost !== '' && prof && prof.shipPaidBy !== 'buyer' && (f('shippingCost').value.trim() === '' || f('shippingCost').dataset.auto)) { f('shippingCost').value = (+pk.cost).toFixed(2); f('shippingCost').dataset.auto = '1'; }
+    };
+    body.addEventListener('input', (e) => { if (e.target.name === 'platform') { pkgShip(); calc(); } });
+    estimate(); pkgShip(); calc(); bundlePrev();
     const ok = await U.modal({
       title: single ? (it ? `Record sale — ${it.name}` : 'Record a sale') : 'Mark items as sold', body,
       buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost' }, { label: 'Record sale', cls: 'btn-primary', validate: () => { if (pick && !target) { f('item').focus(); return false; } return true; } }]
@@ -1360,6 +1449,17 @@
       commit('items', [{ id: t.id, after: markListingsSold({ ...U.clone(t), ...patch }) }], { label: 'record sale' });
       if (!Calc.isSold(t)) celebrateSale([findItem(t.id)]);
       if (needsDelist(findItem(t.id))) setTimeout(() => delistChecklist(findItem(t.id)), S().celebrate === false ? 200 : 2500);
+      if (t.location) setTimeout(() => U.toast(`📦 Pull it from ${t.location}`, 'ok', { ms: 8000 }), 1200);
+    } else if (f('mode') && body.querySelector('[name=mode]:checked').value === 'bundle') {
+      const total = U.num(f('bTotal').value) || 0, net = U.num(f('bNet').value) ?? total, ship = U.num(f('bShip').value) || 0, how = f('bSplit').value;
+      const P = splitShares(total, how), N = splitShares(net, how), Sh = splitShares(ship, how);
+      const orderId = 'ord-' + U.uid().slice(0, 8);
+      commit('items', list.map((x, i) => ({ id: x.id, after: markListingsSold({ ...U.clone(x), status: 'sold', platform: platform || x.platform || ((x.listings || [])[0] || {}).platform || '', dateSold, sellingPrice: P[i], totalAfterFees: N[i], shippingCost: Sh[i], orderId, orderSize: list.length }) })), { label: `bundle sale (${list.length} items)` });
+      celebrateSale(list.filter((x) => !Calc.isSold(x)).map((x) => findItem(x.id)));
+      const bins = uniq(list.map((x) => x.location).filter(Boolean));
+      if (bins.length) setTimeout(() => U.toast(`📦 Pull them from ${bins.join(', ')}`, 'ok', { ms: 9000 }), 1200);
+      const nDel = list.filter((x) => needsDelist(findItem(x.id))).length;
+      if (nDel) setTimeout(() => U.toast(`${nDel} of the bundled items are still listed elsewhere — see the Action Center to delist.`, '', { label: 'Open', fn: () => showView('actions') }), 2000);
     } else {
       const fill = f('fillEst') && f('fillEst').checked;
       commit('items', list.map((x) => {
@@ -1378,7 +1478,7 @@
     }
     addListValue('platforms', platform);
     renderAll();
-    U.toast(single ? 'Sale recorded' : `${list.length} items marked sold`, 'ok');
+    U.toast(single ? 'Sale recorded' : (f('mode') && body.querySelector('[name=mode]:checked').value === 'bundle' ? `Bundle of ${list.length} recorded as one order` : `${list.length} items marked sold`), 'ok');
   }
 
   function flashRow(id) {
@@ -2130,7 +2230,7 @@
       kpi('Next est. tax', tax ? U.money0(tax.owed) : '—', tax ? `Q${tax.q} ${tax.year} due ${U.fmtDate(tax.due)}` : '', 'var(--pending)')
     ].join('');
 
-    $('#actBody').innerHTML = `
+    $('#actBody').innerHTML = (window.Ext && Ext.actionsTop ? Ext.actionsTop() : '') + `
       <section class="card act-card ${delist.length ? 'urgent' : ''}">
         <div class="card-head"><h3>🔴 Delist needed <span class="pill">${delist.length}</span></h3><span class="muted small">Sold items that are still active on other sites — remove them so they can’t sell twice.</span></div>
         ${delist.length ? delist.map((it) => row(it, `<div class="act-btns"><span class="chips">${(it.listings || []).filter((l) => l.status === 'active').map((l) => `<span class="chip" style="--c:${esc(platformColor(l.platform))}">${esc(platformLabel(l.platform))}${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">↗</a>` : ''}</span>`).join('')}</span><button class="btn btn-sm btn-primary" data-act="delist">Checklist</button></div>`, ` · sold ${esc(U.fmtDate(it.dateSold))}${it.platform ? ' on ' + esc(platformLabel(it.platform)) : ''}`)).join('') : '<div class="empty">Nothing to delist ✓</div>'}
@@ -2273,6 +2373,7 @@
   const labelCtx = () => ({ format: S().labelFormat || 'avery5160', money: U.money, platformLabel, logo: logoURL(), company: (S().companyName ?? '').trim() });
   const printCtx = () => ({ items: state.items, expenses: state.expenses, mileage: state.mileage, settings: S(), platformLabel, logo: logoURL(), company: (S().companyName ?? '').trim() });
   function openItemFromCode(text) {
+    { const m = /#bin=([^&\s]+)/.exec(String(text || '')); if (m && window.Ext && Ext.openBin) { Ext.openBin(decodeURIComponent(m[1])); return; } }
     const q = Labels.parse(text);
     let it = q.id ? findItem(q.id) : null;
     if (!it && q.sku) {
@@ -2298,6 +2399,7 @@
   }
   function handleHash() {
     const h = location.hash;
+    if (/^#bin=/.test(h) && Store.unlocked && window.Ext && Ext.openBin) { history.replaceState(null, '', location.pathname + location.search); Ext.openBin(decodeURIComponent(h.slice(5))); return; }
     if (!/^#(sku|id)=/.test(h) || !Store.unlocked) return;
     history.replaceState(null, '', location.pathname + location.search);
     openItemFromCode(h);
@@ -2487,7 +2589,7 @@
     async snapshot() {
       const live = new Set(state.items.map((i) => i.id));
       return { questionAnswers: await Store.getQuestionAnswers().catch(() => null), items: state.items, expenses: state.expenses, mileage: state.mileage, settings: state.settings, tombstones: state.meta.tombstones || {}, logo: state.logo, activity: state.activity,
-        photos: Object.fromEntries(Object.entries(state.thumbs).filter(([id]) => live.has(id)).map(([id, t]) => [id, { thumb: t.thumb, w: t.w, h: t.h }])) };
+        photos: Object.fromEntries(Object.entries(state.thumbs).filter(([id]) => live.has(id.split('~')[0])).map(([id, t]) => [id, { thumb: t.thumb, w: t.w, h: t.h }])) };
     },
     async apply(m) {
       syncApplying = true;
@@ -2583,7 +2685,7 @@
      ========================================================= */
   const ORD_COLS = [
     { key: 'dateSold', label: 'Date Sold', type: 'date' },
-    { key: 'name', label: 'Item Name', type: 'text', width: 220 },
+    { key: 'name', label: 'Item Name', type: 'text', width: 220, render: (r) => `${esc(r.name)}${r.orderSize > 1 ? ` <span class="ord-b" title="Sold together in one order of ${r.orderSize} items">bundle ×${r.orderSize}</span>` : ''}${(r.refunds || []).length ? ' <span class="ord-b ref" title="Refund recorded">refund</span>' : ''}` },
     { key: 'sku', label: 'SKU', type: 'text', get: (r) => { const n = Number(r.sku); return r.sku !== '' && !isNaN(n) ? n : (r.sku || null); } },
     { key: 'category', label: 'Category', type: 'list', free: true, lower: true, list: allCats },
     { key: 'platform', label: 'Platform', type: 'list', free: true, lower: true, list: allPlatforms, render: (r) => platformTag(r.platform) },
@@ -2616,6 +2718,7 @@
       actions: [
         { icon: ICON.open, title: 'Details, packing slip & thank-you card', fn: (r) => openItemSheet(r) },
         { icon: ICON.edit, title: 'Edit all fields', fn: (r) => itemDialog(r) },
+        { icon: ICON.refund, title: 'Refund or return', fn: (r) => window.Ext && Ext.refundDialog && Ext.refundDialog(r) },
         { icon: ICON.back, title: 'Return to inventory (undo sale)', fn: (r) => { commit('items', [{ id: r.id, after: { ...U.clone(r), status: 'available', dateSold: '', platform: '', totalAfterFees: null, listings: (r.listings || []).map((l) => (l.status === 'sold' ? { ...l, status: 'active', statusDate: U.todayISO() } : l)) } }], { label: 'return to inventory' }); renderAll(); U.toast('Returned to inventory', ''); } },
         { icon: ICON.del, title: 'Delete', cls: 'del', fn: (r) => deleteItems([r]) }
       ],
@@ -2804,6 +2907,7 @@
     const recent = state.items.filter(Calc.isSold).sort((a, b) => (b.dateSold || '').localeCompare(a.dateSold || '')).slice(0, 7);
     $('#recentSales').innerHTML = recent.length ? recent.map((i) => { const p = Calc.profit(i); return `<div class="mini-row" data-sheet="${esc(i.id)}">${mini(i)}<div class="mini-main"><div class="mini-name">${esc(i.name)}</div><div class="mini-meta">${U.fmtDate(i.dateSold)} · ${esc(i.platform || '—')}</div></div><div class="mini-right">${U.money(i.sellingPrice)}<div class="mini-meta ${p < 0 ? 'neg' : 'pos'}">${p === null ? '' : (p >= 0 ? '+' : '') + U.money(p)}</div></div></div>`; }).join('') : Dash.empty('No sales yet', 'Mark an item sold and it appears here.', 'tag');
     if (typeof renderActivityFeed === 'function') renderActivityFeed();
+    if (window.Ext && Ext.afterDashboard) Ext.afterDashboard();
   }
 
   /* =========================================================
@@ -2832,6 +2936,7 @@
           <tr class="hdr"><td>Cost of sales</td><td></td></tr>
           ${row('Cost of goods sold (purchase price)', -m.cogs, 'sub')}
           ${row('Shipping costs', -m.shipping, 'sub')}
+          ${m.refunds ? row('Refunds &amp; return shipping', -m.refunds, 'sub') : ''}
           ${row('Gross profit', m.grossProfit, 'strong')}
           <tr class="hdr"><td>Operating expenses</td><td></td></tr>
           ${exps.length ? exps.map(([c, v]) => row(esc(c), -v, 'sub')).join('') : row('No expenses recorded', 0, 'sub')}
@@ -3132,7 +3237,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.24g';
+  const APP_VERSION = '2026.11.24h';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3388,6 +3493,7 @@
     try { sessionStorage.setItem('ledger:view', v); } catch (_) { /* ignore */ }
   }
   function renderView(v) {
+    if (window.Ext) Ext.run('view', v);
     if (v === 'dashboard') renderDashboard();
     else if (v === 'inventory') invGrid.render();
     else if (v === 'orders') ordGrid.render();
@@ -3673,6 +3779,14 @@
     });
     window.addEventListener('resize', U.debounce(() => { if (!Store.unlocked) return; if (currentView() === 'dashboard') renderDashboard(); applyHeights(); }, 200));
 
+    /* ---------- internal API for the add-on modules (js/ext-*.js) ---------- */
+    window.TA = {
+      state, S, saveSettings, commit, findItem, renderAll, renderView, currentView, showView, profiles, profileFor, platformLabel, platformColor,
+      esc, uniq, uniqVals, statusBadge, thumbOf, setPhoto, removePhoto, refreshPhotoRow, itemDialog, openItemSheet, markSoldDialog, persist, myName, addActivity,
+      flashRow, saving, ICON, allPlatforms, allCats, normalizeItem, normalizeTrip, blankItem, nextSku, copyText, labelCtx, printCtx, kpi, timeAgo, crossListDialog,
+      numVal, dl, celebrate: (items) => celebrateSale(items), get invGrid() { return invGrid; }, get ordGrid() { return ordGrid; }, undoNow: () => undo()
+    };
+    if (window.Ext && Ext.init) Ext.init();
     try { showLock((await Store.isSetUp()) ? 'unlock' : 'setup'); }
     catch (e) { showLock('unlock'); $('#lockError').textContent = 'Storage unavailable: ' + e.message; }
   });

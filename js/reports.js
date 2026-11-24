@@ -24,13 +24,16 @@
       return 'fresh';
     },
     net(it) { return it.totalAfterFees ?? it.sellingPrice ?? 0; },
+    /** money given back to buyers (partial refunds) and return-shipping you paid */
+    refunded(it) { return U.round2((it.refunds || []).reduce((a, r) => a + (+r.amount || 0), 0)); },
+    returnShip(it) { return U.round2((it.refunds || []).reduce((a, r) => a + (+r.returnShip || 0), 0)); },
     fees(it) {
       if (!Calc.isSold(it) || it.sellingPrice == null || it.totalAfterFees == null) return null;
       return U.round2(it.sellingPrice - it.totalAfterFees);
     },
     profit(it) {
       if (!Calc.isSold(it)) return null;
-      return U.round2(Calc.net(it) - (it.purchasePrice || 0) - (it.shippingCost || 0));
+      return U.round2(Calc.net(it) - (it.purchasePrice || 0) - (it.shippingCost || 0) - Calc.refunded(it) - Calc.returnShip(it));
     },
     margin(it) {
       const p = Calc.profit(it);
@@ -100,8 +103,9 @@
       const net = sum(sold, Calc.net);
       const fees = U.round2(gross - net);
       const cogs = sum(sold, (i) => i.purchasePrice);
+      const refunds = U.round2(sum(sold, Calc.refunded) + sum(sold, Calc.returnShip)); // partial refunds + return shipping
       const shipping = sum(sold, (i) => i.shippingCost);
-      const grossProfit = U.round2(net - cogs - shipping);
+      const grossProfit = U.round2(net - refunds - cogs - shipping);
       const exps = expenses.filter((e) => all ? true : U.inRange(e.date, from, to));
       const expenseTotal = sum(exps, (e) => e.amount);
       const expByCat = {};
@@ -129,7 +133,7 @@
       const unsoldAges = assets.map((it) => U.daysBetween(it.datePosted, asOf)).filter((d) => d !== null);
       const avgAge = unsoldAges.length ? unsoldAges.reduce((a, b) => a + b, 0) / unsoldAges.length : null;
       return {
-        from, to, sold, gross, net, fees, cogs, shipping, grossProfit, expenses: exps, expenseTotal, expByCat,
+        from, to, sold, gross, net, fees, refunds, cogs, shipping, grossProfit, expenses: exps, expenseTotal, expByCat,
         netProfit, taxable, salesTax, trips, miles: U.round2(miles), mileageDeduction, writtenOff, writeOffs, seBase, seTax, incomeTax, totalTax, afterTax: U.round2(netProfit - totalTax),
         assets, invCost, invRetail, invPotential: U.round2(invRetail - invCost), purchaseTotal, purchasedCount: purchased.length,
         soldCount: sold.length, avgSale: sold.length ? gross / sold.length : 0, avgProfit: sold.length ? grossProfit / sold.length : 0,
@@ -399,7 +403,8 @@
     const rNet = line(r++, 2, 'Net sales (total after fees)', { formula: `${rGross}+${rFees}`, result: m.net }, { bold: true });
     const rCogs = line(r++, 2, 'Less: cost of goods sold', { formula: `-${salesCol('K')}`, result: -m.cogs }, { indent: true });
     const rShip = line(r++, 2, 'Less: shipping costs', { formula: `-${salesCol('L')}`, result: -m.shipping }, { indent: true });
-    const rGP = line(r++, 2, 'Gross profit', { formula: `${rNet}+${rCogs}+${rShip}`, result: m.grossProfit }, { bold: true });
+    const rRef = m.refunds ? line(r++, 2, 'Less: refunds & return shipping', { formula: `${-m.refunds}`, result: -m.refunds }, { indent: true }) : null;
+    const rGP = line(r++, 2, 'Gross profit', { formula: `${rNet}+${rCogs}+${rShip}${rRef ? '+' + rRef : ''}`, result: m.grossProfit }, { bold: true });
     const expCats = Object.entries(m.expByCat).sort((a, b) => b[1] - a[1]);
     const expRefs = [];
     expCats.forEach(([cat, amt]) => {
