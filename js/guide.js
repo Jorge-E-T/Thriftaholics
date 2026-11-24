@@ -57,7 +57,8 @@
           ['📊', 'Excel Report', 'A formatted workbook with sales, costs, taxes and the whole inventory.'],
           ['☁', 'Sync pill', 'Shows cloud sync status: Off, Connecting…, Syncing…, Up to date, Offline. Click it to open sync settings.'],
           ['⌖', 'Scan', 'Opens the camera to read a QR label or barcode and jump to that item.'],
-          ['🔒', 'Lock', 'Locks the app right away.']
+          ['🔒', 'Lock', 'Locks the app right away.'],
+          ['↶', 'Undo / Redo', 'Always in the bottom-left corner, on every tab. It names the change it will undo; the little number shows how many steps you can go back.']
         ] },
         { t: 'grid', h: 'The tabs', items: [
           ['📈', 'Dashboard', 'How the business is doing at a glance.'],
@@ -90,7 +91,7 @@
       blocks: [
         { t: 'steps', h: 'Editing like a spreadsheet', items: [
           ['Click any cell to edit it', `${k('Tab')} moves to the next cell, ${k('Enter')} saves, ${k('Esc')} cancels.`],
-          ['Undo anything', `${k('Ctrl')} + ${k('Z')} (${k('⌘')} + ${k('Z')} on a Mac), or the <b>Undo</b> button on the message that pops up.`],
+          ['Undo anything', `The <b>Undo</b> button in the bottom-left corner is always there — it shows what it will undo, like “edit price”. <b>Redo</b> next to it puts it back. Keyboard: ${k('Ctrl')} + ${k('Z')} to undo, ${k('Ctrl')} + ${k('Shift')} + ${k('Z')} (or ${k('Ctrl')} + ${k('Y')}) to redo — use ${k('⌘')} on a Mac.`],
           ['Edit every field at once', 'The ✎ button on a row opens the full editor: brand, size, color, condition, measurements, weight, location, source, purchase date, lowest acceptable price, listings and notes.'],
           ['Sort', 'Click a column header. <b>Shift</b> + click adds a second sort column.']
         ] },
@@ -332,7 +333,7 @@
           ['⬇', 'Backups', 'The Backup button downloads everything, including photos. Settings → Data → <b>Encrypt JSON backups</b> protects the file with your password.'],
           ['⏰', 'Reminders', 'Settings → Reminders → <b>Backup reminder</b> shows a banner every N days.'],
           ['📸', 'Safety snapshots', 'Saved automatically before every import, restore, sync takeover and new app version. The last 10 are kept; restore or download one any time.'],
-          ['↩️', 'Undo', `${k('Ctrl')} + ${k('Z')} undoes your last changes (up to 50).`],
+          ['↩️', 'Undo & redo', `The Undo / Redo buttons in the bottom-left corner work on every tab and remember your last 50 changes since you unlocked the app. ${k('Ctrl')} + ${k('Z')} works too.`],
           ['🕘', 'Revert', 'Activity history can roll back any single change.'],
           ['🧨', 'Erase', 'Settings → Danger zone erases everything in this browser — and, if you choose, the cloud copy too. Back up first!']
         ] }
@@ -369,6 +370,7 @@
           ['The “sell” page link opens the wrong page.', 'Sites move pages around. Open the site, go to its “sell an item” page yourself, copy that address, and paste it into Platforms → Edit → Cross-listing helper → “Sell an item” page.'],
           ['A title is cut off.', 'It was trimmed to that site’s title limit. Edit it in the helper, or change the limit in Platforms → Edit if the site allows more.'],
           ['Can two items have the same SKU?', 'Yes. Every item has its own hidden ID, so sales, profit, photos and sync keep them apart. The app just helps you notice: the SKU shows a small <b>×2</b> badge, the editor says which other item uses it, and Inventory → <b>⚠ Duplicate SKUs</b> (in the age filter) lists them all. QR labels open the exact item, and typing or scanning a shared SKU asks which one you mean.'],
+          ['I made a mistake. How do I take it back?', 'Click <b>Undo</b> in the bottom-left corner (or press Ctrl/⌘ + Z) — as many times as you need, up to 50 steps. Went one too far? <b>Redo</b>. Undo remembers what <b>you</b> did on <b>this device</b> since you unlocked the app; for older changes, or something someone else did, use <b>Revert</b> in the activity history (Dashboard → Recent activity → View all).'],
           ['I imported the wrong file.', 'Settings → Safety snapshots → restore the snapshot from just before the import.'],
           ['Labels print the wrong size.', 'In the print window set scale to <b>Actual size / 100%</b>, margins to <b>Default</b>, and check the label format in Settings.'],
           ['Where are the PDFs saved?', 'Wherever you choose in the print window after picking <b>Save as PDF</b> (usually Downloads).'],
@@ -424,7 +426,7 @@
         <div class="gx-sites">${[['Poshmark', '#8c2f39', 1], ['Depop', '#d1492e', 1], ['eBay', '#3a6ea5', 1], ['Mercari', '#7b4fa0', 0]].map(([n, c, ok]) => `<span style="--c:${c}">${n}${ok ? ' ✓' : ''}</span>`).join('')}</div>
         <div class="gx-cap">1 item · copy-ready for each site · <b>3 of 4 live</b></div></div>`,
     layers: () => `<div class="g-layers" aria-hidden="true">${[['🔐', 'Encryption', 'locks everything'], ['☁️', 'Cloud sync', 'a live copy'], ['⬇', 'Backups', 'files you keep'], ['📸', 'Snapshots', 'automatic restore points'], ['↩️', 'Undo & revert', 'oops-proof']].map(([i, t, s], n) => `<div style="--n:${n}"><span>${i}</span><b>${t}</b><em>${s}</em></div>`).join('')}</div>`,
-    keys: () => `<div class="g-keys">${[[k('Ctrl') + '/' + k('⌘') + ' + ' + k('Z'), 'Undo'], [k('Tab'), 'Next cell'], [k('Enter'), 'Save the cell'], [k('Esc'), 'Cancel editing / close a window'], ['<b>Shift</b> + click header', 'Sort by a second column'], ['Drag a photo onto a row', 'Add a photo']].map(([a, d]) => `<div><span>${a}</span><em>${d}</em></div>`).join('')}</div>`
+    keys: () => `<div class="g-keys">${[[k('Ctrl') + '/' + k('⌘') + ' + ' + k('Z'), 'Undo'], [k('Ctrl') + '/' + k('⌘') + ' + ' + k('Shift') + ' + ' + k('Z'), 'Redo (or ' + k('Ctrl') + ' + ' + k('Y') + ')'], [k('Tab'), 'Next cell'], [k('Enter'), 'Save the cell'], [k('Esc'), 'Cancel editing / close a window'], ['<b>Shift</b> + click header', 'Sort by a second column'], ['Drag a photo onto a row', 'Add a photo']].map(([a, d]) => `<div><span>${a}</span><em>${d}</em></div>`).join('')}</div>`
   };
 
   /* ---------- render ---------- */

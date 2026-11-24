@@ -50,7 +50,7 @@
     expSort: [{ key: 'date', dir: 'desc' }]
   };
 
-  const state = { items: [], expenses: [], mileage: [], activity: [], settings: U.clone(DEFAULT_SETTINGS), logo: null, meta: {}, thumbs: {}, selection: new Set(), undo: [] };
+  const state = { items: [], expenses: [], mileage: [], activity: [], redo: [], settings: U.clone(DEFAULT_SETTINGS), logo: null, meta: {}, thumbs: {}, selection: new Set(), undo: [] };
   const S = () => state.settings;
 
   /* ---------------- persistence ---------------- */
@@ -68,7 +68,7 @@
   const saveSettings = U.debounce(() => { state.settings.updatedAt = Date.now(); persist(() => Store.putVault('settings', state.settings)); if (window.Sync) Sync.changed(); }, 250);
 
   /** Apply item/expense changes with undo support. changes: [{ id, after }] (after=null deletes) */
-  function commit(kind, changes, { undoable = true, label = '', log = true } = {}) {
+  function commit(kind, changes, { undoable = true, label = '', log = true, keepRedo = false } = {}) {
     const who = myName();
     const list = kind === 'items' ? state.items : kind === 'mileage' ? state.mileage : state.expenses;
     const before = [];
@@ -92,19 +92,55 @@
     puts.forEach((r) => { const t = state.meta.tombstones && state.meta.tombstones[kind]; if (t && t[r.id]) delete t[r.id]; });
     if (log) logActivity(kind, before, changes, label, who);
     if (window.Sync) Sync.changed();
-    if (undoable) { state.undo.push({ kind, before, label }); if (state.undo.length > 50) state.undo.shift(); }
+    if (undoable) { state.undo.push({ kind, before, label, ids: changes.map((c) => c.id) }); if (state.undo.length > 50) state.undo.shift(); if (!keepRedo) state.redo = []; }
+    updateUndoUI();
     persist(async () => {
       if (kind === 'mileage') { await Store.putVault('mileage', state.mileage); return; }
       if (puts.length) await Store.putMany(kind, puts);
       if (dels.length) await Store.deleteMany(kind, dels);
     });
   }
+  const listOf = (kind) => (kind === 'items' ? state.items : kind === 'mileage' ? state.mileage : state.expenses);
+  const stepName = (step) => {
+    const l = String(step.label || '').replace(/^edit /, 'edit ');
+    const n = step.before.length;
+    const noun = step.kind === 'items' ? 'items' : step.kind === 'mileage' ? 'trips' : 'expenses';
+    if (l) return n > 1 && !/\d/.test(l) ? `${l} (${n} ${noun})` : l;
+    return n > 1 ? `change ${n} ${noun}` : 'last change';
+  };
   function undo() {
+    if (!$('#modal').classList.contains('hidden')) return;
     const step = state.undo.pop();
-    if (!step) { U.toast('Nothing to undo'); return; }
+    if (!step) { U.toast('Nothing to undo'); updateUndoUI(); return; }
+    const list = listOf(step.kind);
+    // remember how things are now, so Redo can put them back
+    state.redo.push({ kind: step.kind, label: step.label, after: step.before.map(({ id }) => ({ id, rec: (() => { const r = list.find((x) => x.id === id); return r ? U.clone(r) : null; })() })) });
+    if (state.redo.length > 50) state.redo.shift();
     commit(step.kind, step.before.map(({ id, rec }) => ({ id, after: rec ? U.clone(rec) : null })), { undoable: false, label: 'undo' + (step.label ? ': ' + step.label : '') });
-    renderAll();
-    U.toast('Undone' + (step.label ? ': ' + step.label : ''), 'ok');
+    renderAll(); updateUndoUI();
+    U.toast('Undone: ' + stepName(step), 'ok');
+  }
+  function redo() {
+    if (!$('#modal').classList.contains('hidden')) return;
+    const step = state.redo.pop();
+    if (!step) { U.toast('Nothing to redo'); updateUndoUI(); return; }
+    commit(step.kind, step.after.map(({ id, rec }) => ({ id, after: rec ? U.clone(rec) : null })), { label: step.label ? 'redo: ' + step.label : 'redo', keepRedo: true });
+    // keep the original label on the new undo step
+    const top = state.undo[state.undo.length - 1]; if (top) top.label = step.label;
+    renderAll(); updateUndoUI();
+    U.toast('Redone: ' + stepName({ ...step, before: step.after }), 'ok');
+  }
+  function updateUndoUI() {
+    const dock = $('#undoDock'); if (!dock) return;
+    const u = state.undo[state.undo.length - 1], r = state.redo[state.redo.length - 1];
+    const mod = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl';
+    $('#btnUndo').disabled = !u; $('#btnRedo').disabled = !r;
+    $('#undoWhat').textContent = u ? stepName(u) : 'Nothing to undo';
+    $('#btnUndo').title = u ? `Undo: ${stepName(u)} (${mod}+Z)` : 'Nothing to undo yet';
+    $('#btnRedo').title = r ? `Redo: ${stepName({ ...r, before: r.after })} (${mod}+Shift+Z)` : 'Nothing to redo';
+    const c = $('#undoCount'); c.textContent = state.undo.length > 1 ? state.undo.length : ''; c.classList.toggle('hidden', state.undo.length < 2);
+    if (u && updateUndoUI.lastLen !== undefined && state.undo.length > updateUndoUI.lastLen) { dock.classList.remove('pop'); void dock.offsetWidth; dock.classList.add('pop'); }
+    updateUndoUI.lastLen = state.undo.length;
   }
 
 
@@ -213,7 +249,7 @@
     }
     if (e.act === 'added' && !cur) { U.toast('That record is already gone.'); return false; }
     commit(kind, [{ id: e.rid, after }], { label: 'revert' });
-    renderAll(); U.toast('Reverted', 'ok', { label: 'Undo', fn: undo });
+    renderAll(); U.toast('Reverted', 'ok');
     return true;
   }
   function openActivityLog() {
@@ -800,6 +836,8 @@
     $('#btnImportXlsx').onclick = () => $('#importXlsxInput').click();
     $('#importXlsxInput').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importExcel(f); };
 
+    // the selection bar lives on <body> so 'position: fixed' is relative to the screen, not an animated view
+    document.body.appendChild($('#bulkBar'));
     $('#bulkBar').addEventListener('click', async (e) => {
       const b = e.target.closest('[data-bulk]'); if (!b) return;
       const sel = state.items.filter((i) => state.selection.has(i.id));
@@ -833,6 +871,7 @@
     $('#bulkBar').classList.toggle('hidden', n === 0);
     document.body.classList.toggle('has-bulkbar', n > 0 && currentView() === 'inventory');
     $('#bulkCount').textContent = `${n} selected`;
+    requestAnimationFrame(() => document.documentElement.style.setProperty('--bbh', (n ? $('#bulkBar').offsetHeight : 0) + 'px'));
   }
   function duplicateItems(list) {
     let sku = parseInt(nextSku(), 10);
@@ -845,7 +884,7 @@
       persist(async () => { const ph = await Store.getPhoto(src); await Store.putPhoto(c.id, { ...state.thumbs[src], full: ph ? ph.full : state.thumbs[src].thumb }); });
     });
     renderAll();
-    U.toast(`Duplicated ${copies.length} item(s)`, 'ok', { label: 'Undo', fn: undo });
+    U.toast(`Duplicated ${copies.length} item(s)`, 'ok');
   }
   async function deleteItems(list) {
     if (!list.length) return;
@@ -853,7 +892,7 @@
     commit('items', list.map((it) => ({ id: it.id, after: null })), { label: 'delete' });
     list.forEach((it) => state.selection.delete(it.id));
     renderAll(); updateBulkBar();
-    U.toast(`Deleted ${list.length === 1 ? '“' + (list[0].name || 'item') + '”' : list.length + ' items'}`, '', { label: 'Undo', fn: undo });
+    U.toast(`Deleted ${list.length === 1 ? '“' + (list[0].name || 'item') + '”' : list.length + ' items'}`, '');
   }
 
   function columnsPopover(anchor) {
@@ -1339,7 +1378,7 @@
     }
     addListValue('platforms', platform);
     renderAll();
-    U.toast(single ? 'Sale recorded' : `${list.length} items marked sold`, 'ok', { label: 'Undo', fn: undo });
+    U.toast(single ? 'Sale recorded' : `${list.length} items marked sold`, 'ok');
   }
 
   function flashRow(id) {
@@ -2142,7 +2181,7 @@
       if (e.target.closest('[data-rel-all]')) {
         const list = state.items.filter(relistDue);
         commit('items', list.map((it) => ({ id: it.id, after: { ...U.clone(it), lastRelisted: U.todayISO() } })), { label: 'mark refreshed' });
-        renderActions(); U.toast(`${list.length} items marked refreshed`, 'ok', { label: 'Undo', fn: undo }); return;
+        renderActions(); U.toast(`${list.length} items marked refreshed`, 'ok'); return;
       }
       const mdBtn = e.target.closest('[data-md]');
       if (mdBtn) {
@@ -2155,7 +2194,7 @@
         } else {
           if (mdBtn.dataset.md === 'applyall' && !(await U.confirm('Apply price drops', `Lower the price of <b>${list.length}</b> items by your markdown plan? Remember to update the prices on each site too. You can undo right after.`, 'Apply all'))) return;
           commit('items', list.map((it) => { const d = markdownDue(it); return { id: it.id, after: { ...U.clone(it), sellingPrice: d.to, markdownStep: d.step, lastMarkdown: U.todayISO(), _priceReason: `markdown −${d.pct}%` } }; }), { label: 'markdown' });
-          U.toast(`Lowered ${list.length} price(s). Update them on each site too.`, 'ok', { label: 'Undo', fn: undo });
+          U.toast(`Lowered ${list.length} price(s). Update them on each site too.`, 'ok');
         }
         actState.mdSel.clear(); renderActions(); return;
       }
@@ -2167,7 +2206,7 @@
       }
       const it = findItem(ar.dataset.aid); if (!it) return;
       const md = S().markdown;
-      const save = (patch, label, msg) => { commit('items', [{ id: it.id, after: { ...U.clone(it), ...patch } }], { label }); renderActions(); if (msg) U.toast(msg, 'ok', { label: 'Undo', fn: undo }); };
+      const save = (patch, label, msg) => { commit('items', [{ id: it.id, after: { ...U.clone(it), ...patch } }], { label }); renderActions(); if (msg) U.toast(msg, 'ok'); };
       switch (a.dataset.act) {
         case 'delist': delistChecklist(it); break;
         case 'relisted': save({ lastRelisted: U.todayISO() }, 'refreshed'); break;
@@ -2224,7 +2263,7 @@
     const changes = list.filter((it) => it.sellingPrice != null || f('mode').value === 'set').map((it) => ({ id: it.id, after: { ...U.clone(it), sellingPrice: calcNew(it), lastMarkdown: U.todayISO(), _priceReason: reason } })).filter((c) => c.after.sellingPrice !== findItem(c.id).sellingPrice);
     commit('items', changes, { label: 'bulk price' });
     renderAll();
-    U.toast(`Updated ${changes.length} price(s) — update them on each site too`, 'ok', { label: 'Undo', fn: undo });
+    U.toast(`Updated ${changes.length} price(s) — update them on each site too`, 'ok');
   }
 
   /* =========================================================
@@ -2290,7 +2329,7 @@
       onEdit: (t, key, v) => { commit('mileage', [{ id: t.id, after: { ...U.clone(t), [key]: key === 'miles' ? (v ?? 0) : v } }], { label: 'edit trip' }); renderMileSummary(); },
       actions: [
         { icon: ICON.dup, title: 'Repeat this trip today', fn: (t) => { const c = { ...U.clone(t), id: U.uid(), date: U.todayISO(), createdAt: Date.now() }; commit('mileage', [{ id: c.id, after: c }], { label: 'repeat trip' }); mileGrid.render(); renderMileSummary(); } },
-        { icon: ICON.del, title: 'Delete', cls: 'del', fn: (t) => { commit('mileage', [{ id: t.id, after: null }], { label: 'delete trip' }); mileGrid.render(); renderMileSummary(); U.toast('Trip deleted', '', { label: 'Undo', fn: undo }); } }
+        { icon: ICON.del, title: 'Delete', cls: 'del', fn: (t) => { commit('mileage', [{ id: t.id, after: null }], { label: 'delete trip' }); mileGrid.render(); renderMileSummary(); U.toast('Trip deleted', ''); } }
       ],
       afterRender: renderMileSummary
     });
@@ -2460,7 +2499,7 @@
         for (const [id, ph] of Object.entries(m.photos || {})) {
           if (!state.thumbs[id] && ph && ph.thumb) { await Store.putPhoto(id, { thumb: ph.thumb, full: ph.thumb, w: ph.w, h: ph.h }); state.thumbs[id] = { thumb: ph.thumb, w: ph.w, h: ph.h }; }
         }
-        state.undo = [];
+        state.undo = []; state.redo = []; updateUndoUI();
         applySettingsToUI(); renderAll();
         U.toast('Updated with changes from your other device', 'ok');
       } finally { syncApplying = false; }
@@ -2498,7 +2537,7 @@
       if (a.photos.del.length) { a.photos.del.forEach((id) => delete state.thumbs[id]); await Store.deletePhotos(a.photos.del); }
       if (a.recovery && password) await syncApi.adoptRecovery(a.recovery, password);
       if (a.activity && a.activity.length) addActivity(a.activity);
-      state.undo = [];
+      state.undo = []; state.redo = []; updateUndoUI();
       applySettingsToUI(); renderLogo(); renderAll();
     } finally { syncApplying = false; }
   };
@@ -2577,7 +2616,7 @@
       actions: [
         { icon: ICON.open, title: 'Details, packing slip & thank-you card', fn: (r) => openItemSheet(r) },
         { icon: ICON.edit, title: 'Edit all fields', fn: (r) => itemDialog(r) },
-        { icon: ICON.back, title: 'Return to inventory (undo sale)', fn: (r) => { commit('items', [{ id: r.id, after: { ...U.clone(r), status: 'available', dateSold: '', platform: '', totalAfterFees: null, listings: (r.listings || []).map((l) => (l.status === 'sold' ? { ...l, status: 'active', statusDate: U.todayISO() } : l)) } }], { label: 'return to inventory' }); renderAll(); U.toast('Returned to inventory', '', { label: 'Undo', fn: undo }); } },
+        { icon: ICON.back, title: 'Return to inventory (undo sale)', fn: (r) => { commit('items', [{ id: r.id, after: { ...U.clone(r), status: 'available', dateSold: '', platform: '', totalAfterFees: null, listings: (r.listings || []).map((l) => (l.status === 'sold' ? { ...l, status: 'active', statusDate: U.todayISO() } : l)) } }], { label: 'return to inventory' }); renderAll(); U.toast('Returned to inventory', ''); } },
         { icon: ICON.del, title: 'Delete', cls: 'del', fn: (r) => deleteItems([r]) }
       ],
       afterRender: renderOrderKpis
@@ -2636,7 +2675,7 @@
       },
       actions: [
         { icon: ICON.dup, title: 'Duplicate', fn: (r) => { const c = { ...U.clone(r), id: U.uid(), date: U.todayISO(), createdAt: Date.now() }; commit('expenses', [{ id: c.id, after: c }], { label: 'duplicate expense' }); renderExpenses(); } },
-        { icon: ICON.del, title: 'Delete', cls: 'del', fn: (r) => { commit('expenses', [{ id: r.id, after: null }], { label: 'delete expense' }); renderExpenses(); U.toast('Expense deleted', '', { label: 'Undo', fn: undo }); } }
+        { icon: ICON.del, title: 'Delete', cls: 'del', fn: (r) => { commit('expenses', [{ id: r.id, after: null }], { label: 'delete expense' }); renderExpenses(); U.toast('Expense deleted', ''); } }
       ],
       afterRender: renderExpByCat
     });
@@ -2903,7 +2942,7 @@
         state.items = mergeInto(state.items, items); state.expenses = mergeInto(state.expenses, expenses); state.mileage = mergeInto(state.mileage, trips);
         if (data.logo && !state.logo) state.logo = data.logo;
       }
-      state.undo = []; state.selection.clear();
+      state.undo = []; state.redo = []; updateUndoUI(); state.selection.clear();
       await persist(async () => {
         await Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage, activity: state.activity }, photos: choice === 'replace' ? (data.photos || null) : null });
         if (choice === 'merge' && data.photos) for (const [pid, ph] of Object.entries(data.photos)) if (ph && ph.thumb) await Store.putPhoto(pid, { ...ph, full: ph.full || ph.thumb });
@@ -3086,14 +3125,14 @@
       changes.forEach((c) => { if (c.after) { addListValue('categories', c.after.category); addListValue('platforms', c.after.platform); (c.after.listings || []).forEach((l) => addListValue('platforms', l.platform)); } });
       renderAll();
       const withPlat = state.items.filter((i) => !Calc.isSold(i) && i.platform).length;
-      U.toast(`Excel import: ${added} added, ${updated} updated${skipped ? `, ${skipped} skipped` : ''}${removed ? `, ${removed} removed` : ''} · ${withPlat} unsold items now show a platform.`, 'ok', { label: 'Undo', fn: undo });
+      U.toast(`Excel import: ${added} added, ${updated} updated${skipped ? `, ${skipped} skipped` : ''}${removed ? `, ${removed} removed` : ''} · ${withPlat} unsold items now show a platform.`, 'ok');
     } catch (e) { console.error(e); U.toast('Excel import failed: ' + e.message, 'err'); }
   }
 
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.24f';
+  const APP_VERSION = '2026.11.24g';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3130,7 +3169,7 @@
     state.items = sn.items.map(normalizeItem); state.expenses = sn.expenses.map(normalizeExpense); state.mileage = (sn.mileage || []).map(normalizeTrip);
     state.settings = { ...U.clone(DEFAULT_SETTINGS), ...U.clone(sn.settings), sync: S().sync };
     markReplaced(prev);
-    state.undo = []; state.selection.clear();
+    state.undo = []; state.redo = []; updateUndoUI(); state.selection.clear();
     await persist(() => Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage, activity: state.activity }, photos: null }));
     applySettingsToUI(); renderAll(); renderSnapshots();
     U.toast('Snapshot restored', 'ok');
@@ -3239,6 +3278,8 @@
     bind('#setShowName', 'showName');
     $('#setYourName').addEventListener('change', (e) => { S().yourName = e.target.value.trim(); saveSettings(); renderActivityFeed(); });
     $('#btnAllActivity').addEventListener('click', openActivityLog);
+    $('#btnUndo').addEventListener('click', undo);
+    $('#btnRedo').addEventListener('click', redo);
     $('#activityFeed').addEventListener('click', (e) => { if (!e.target.closest('[data-goto-name]')) return; showView('settings'); setTimeout(() => { $('#setYourName').scrollIntoView({ block: 'center' }); $('#setYourName').focus(); }, 80); });
     $('#setTheme').addEventListener('change', (e) => { S().theme = e.target.value; saveSettings(); applyTheme(); });
     $('#btnTheme').addEventListener('click', () => {
@@ -3382,11 +3423,11 @@
     Store.lock();
     clearInterval(lockTimer);
     U.closeModal(null);
-    state.items = []; state.expenses = []; state.mileage = []; state.logo = null; state.thumbs = {}; state.undo = []; state.selection.clear();
+    state.items = []; state.expenses = []; state.mileage = []; state.logo = null; state.thumbs = {}; state.undo = []; state.redo = []; updateUndoUI(); state.selection.clear();
     if (window.Sync) Sync.lock();
     ['#invTable', '#ordTable', '#expTable'].forEach((t) => { $(t).tHead.innerHTML = ''; $(t).tBodies[0].innerHTML = ''; $(t).tFoot.innerHTML = ''; });
     ['#kpis', '#reportBody', '#staleList', '#recentSales', '#categoryTable', '#platformDonut', '#salesCal', '#bestStrip', '#activityFeed', '#expByCat', '#ordKpis'].forEach((s) => { const el = $(s); if (el) el.innerHTML = ''; }); state.activity = [];
-    $('#app').classList.add('hidden');
+    $('#app').classList.add('hidden'); $('#undoDock').classList.add('hidden');
     showLock('unlock', msg);
   }
   function showLock(mode, msg) {
@@ -3444,7 +3485,7 @@
       }
       if (!data.settings) await Store.putVault('settings', state.settings);
       $('#lock').classList.add('hidden');
-      $('#app').classList.remove('hidden');
+      $('#app').classList.remove('hidden'); $('#undoDock').classList.remove('hidden'); updateUndoUI();
       lastActivity = Date.now();
       applySettingsToUI();
       let v = 'dashboard'; try { v = sessionStorage.getItem('ledger:view') || 'dashboard'; } catch (_) { /* ignore */ }
@@ -3623,7 +3664,11 @@
 
     document.addEventListener('keydown', (e) => {
       const inField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !inField && Store.unlocked && $('#modal').classList.contains('hidden')) { e.preventDefault(); undo(); }
+      if ((e.ctrlKey || e.metaKey) && !inField && Store.unlocked && $('#modal').classList.contains('hidden')) {
+        const k = e.key.toLowerCase();
+        if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+        else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
+      }
       if (e.key === '/' && !inField && Store.unlocked && currentView() === 'inventory') { e.preventDefault(); $('#invSearch').focus(); }
     });
     window.addEventListener('resize', U.debounce(() => { if (!Store.unlocked) return; if (currentView() === 'dashboard') renderDashboard(); applyHeights(); }, 200));
