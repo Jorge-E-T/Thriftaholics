@@ -215,6 +215,7 @@
           <button class="btn btn-sm" data-bulk="price" type="button">Change price…</button>
           <button class="btn btn-sm" data-bulk="category" type="button">Set category…</button>
           <button class="btn btn-sm" data-bulk="location" type="button">Set location…</button>
+          <button class="btn btn-sm" data-bulk="xlist" type="button">Cross-list…</button>
           <button class="btn btn-sm" data-bulk="labels" type="button">Print labels</button>
           <button class="btn btn-sm" data-bulk="slips" type="button">Packing slips</button>
           <button class="btn btn-sm" data-bulk="thanks" type="button">Thank-you cards</button>
@@ -273,8 +274,9 @@
             <h2>Platforms</h2>
             <p class="muted">Where you sell and what each one charges. These settings estimate the payout when you record a sale, and power the calculator below. Everything is editable.</p>
           </div>
-          <button class="btn btn-primary" id="btnAddPlatform" type="button">+ Add platform</button>
+          <div class="btn-row"><button class="btn" id="btnFeeCheck" type="button">↻ Check for fee updates</button><button class="btn btn-primary" id="btnAddPlatform" type="button">+ Add platform</button></div>
         </div>
+        <div class="fee-strip" id="feeStrip"></div>
         <div class="card" style="margin-bottom:16px">
           <div class="card-head"><h3>Fee calculator</h3><span class="muted small">What you’d keep on each platform</span></div>
           <div class="form-grid g3 calc-inputs">

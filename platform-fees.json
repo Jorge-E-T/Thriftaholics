@@ -1,0 +1,261 @@
+{
+  "updated": "2026-11-24",
+  "checked": "Nov 2026",
+  "about": "Published US seller fees for the Thriftaholics app. Update this file when a marketplace changes its fees; every device picks it up from Platforms → Check for fee updates.",
+  "platforms": {
+    "poshmark": {
+      "name": "Poshmark",
+      "color": "#8c2f39",
+      "url": "https://poshmark.com",
+      "sellUrl": "https://poshmark.com/create-listing",
+      "titleMax": 80,
+      "feePct": 20,
+      "smallThreshold": 15,
+      "smallFlat": 2.95,
+      "shipPaidBy": "buyer",
+      "shipCharge": 6.49,
+      "checked": "Nov 2026",
+      "notes": "Flat $2.95 on sales under $15; 20% on $15 and up, on the sale price only. No separate processing fee. The buyer pays the prepaid USPS label ($6.49, up to 5 lb). You pay the upgrade for heavier boxes (+$5 for 5–10 lb, +$10 for 10–15 lb) and any shipping discount you offer — enter those under “My extra shipping cost”."
+    },
+    "depop": {
+      "name": "Depop",
+      "color": "#d1492e",
+      "url": "https://www.depop.com",
+      "sellUrl": "https://www.depop.com/products/create/",
+      "noTitle": true,
+      "descMax": 1000,
+      "hashtags": 5,
+      "feePct": 0,
+      "procPct": 3.3,
+      "procFixed": 0.45,
+      "feeOnShipping": true,
+      "procOnShipping": true,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "US: no selling fee. Payment processing 3.3% + $0.45 on the full order (item + shipping + tax). Boosted listings cost 12% of a boosted sale — add it under Additional costs if you boost. Buyers pay a separate marketplace fee that doesn’t come out of your payout."
+    },
+    "ebay": {
+      "name": "eBay",
+      "color": "#3a6ea5",
+      "url": "https://www.ebay.com",
+      "sellUrl": "https://www.ebay.com/sl/sell",
+      "titleMax": 80,
+      "feePct": 13.6,
+      "feeFixed": 0.4,
+      "smallThreshold": 10.01,
+      "smallFixed": 0.3,
+      "feeOnShipping": true,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "Most categories incl. clothing, shoes & accessories, no Store: 13.6% of the order total (item + shipping + tax) up to $7,500 (2.35% above), plus $0.40 per order ($0.30 on orders of $10 or less). Processing is included. Athletic sneakers $150+: 8% with no per-order fee. 250 free listings a month, then $0.35 each. Store plans and some categories differ."
+    },
+    "mercari": {
+      "name": "Mercari",
+      "color": "#7b4fa0",
+      "url": "https://www.mercari.com",
+      "sellUrl": "https://www.mercari.com/sell/",
+      "titleMax": 80,
+      "feePct": 10,
+      "feeOnShipping": true,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "10% selling fee on the item price + the shipping the buyer pays. No seller processing fee. Buyers pay a separate buyer-protection fee. Instant Pay cash-outs cost $3 (standard direct deposit is free)."
+    },
+    "facebook marketplace": {
+      "name": "Facebook Marketplace",
+      "color": "#1f6fd1",
+      "url": "https://www.facebook.com/marketplace",
+      "sellUrl": "https://www.facebook.com/marketplace/create/item",
+      "feePct": 10,
+      "feeMin": 0.8,
+      "feeOnShipping": true,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "Shipped (checkout) orders: 10% of the order total, minimum $0.80; processing is included. Local pickup paid in person is free — create a separate “Facebook local” platform with 0% if you sell both ways."
+    },
+    "vinted": {
+      "name": "Vinted",
+      "color": "#1f7a5c",
+      "url": "https://www.vinted.com",
+      "sellUrl": "https://www.vinted.com/items/new",
+      "feePct": 0,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "No seller fees in the US — you keep the full item price. The buyer pays the Vinted fee (about 5% + $0.70) and the shipping label. Optional Bumps / Closet spotlight are paid promotions."
+    },
+    "amazon": {
+      "name": "Amazon",
+      "color": "#e88a00",
+      "url": "https://sellercentral.amazon.com",
+      "feePct": 17,
+      "feeTiers": [
+        {
+          "max": 15,
+          "pct": 5
+        },
+        {
+          "max": 20,
+          "pct": 10
+        }
+      ],
+      "feeMin": 0.3,
+      "feeOnShipping": true,
+      "shipPaidBy": "varies",
+      "checked": "Nov 2026",
+      "extras": [
+        {
+          "id": "amz-indiv",
+          "label": "Individual plan — per item sold",
+          "amount": 0.99,
+          "kind": "order"
+        }
+      ],
+      "notes": "Clothing & Accessories referral fee: 5% if the total (item + shipping you charge) is $15 or less, 10% from $15 to $20, 17% above $20; $0.30 minimum. Processing is included. Individual plan: +$0.99 per item sold. Professional plan: $39.99/month instead — delete the $0.99 cost and add $39.99 per month. Most other categories are 15%. FBA fulfillment and storage fees are extra."
+    },
+    "etsy": {
+      "name": "Etsy",
+      "color": "#f1641e",
+      "url": "https://www.etsy.com",
+      "sellUrl": "https://www.etsy.com/your/shops/me/tools/listings/create",
+      "titleMax": 140,
+      "feePct": 6.5,
+      "feeOnShipping": true,
+      "procPct": 3,
+      "procFixed": 0.25,
+      "procOnShipping": true,
+      "listingFee": 0.2,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "US: $0.20 to list (renews every 4 months or when it sells), 6.5% transaction fee on item + shipping + gift wrap, and payment processing of 3% + $0.25 on the order total. Offsite Ads add 15% (12% if you sold $10k+ in the last year) on sales they bring in. Items must be vintage (20+ years), handmade or craft supplies."
+    },
+    "grailed": {
+      "name": "Grailed",
+      "color": "#111111",
+      "url": "https://www.grailed.com",
+      "sellUrl": "https://www.grailed.com/sell",
+      "feePct": 9,
+      "feeTiers": [
+        {
+          "max": 119.99,
+          "pct": 6
+        }
+      ],
+      "feeMin": 1.99,
+      "procPct": 3.49,
+      "procFixed": 0.49,
+      "procOnShipping": true,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "Commission: 6% (minimum $1.99) on sales under $120, 9% from $120 (since May 20, 2026). With a Grailed label the commission is on the item price only. Payment processing 3.49% + $0.49 on the total incl. shipping (4.99% + $0.49 for international buyers)."
+    },
+    "whatnot": {
+      "name": "Whatnot",
+      "color": "#c9a400",
+      "url": "https://www.whatnot.com",
+      "feePct": 8,
+      "procPct": 2.9,
+      "procFixed": 0.3,
+      "procOnShipping": true,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "Commission 8% of the item’s final price (not shipping) for sellers under $15k in the last 4 weeks; bigger sellers pay less, coins 4%. Payment processing 2.9% + $0.30 on the whole order incl. shipping and tax. No listing fees."
+    },
+    "tiktok shop": {
+      "name": "TikTok Shop",
+      "color": "#111111",
+      "url": "https://seller-us.tiktok.com",
+      "feePct": 6,
+      "shipPaidBy": "varies",
+      "checked": "Nov 2026",
+      "notes": "US referral fee 6% for most categories (5% for some jewelry and pre-owned) on what the buyer pays + platform discounts, excluding tax and shipping; processing is included. Several seller sources report 8% since Aug 4, 2026 — check the rate in Seller Center. Affiliate creator commissions (often 10–20%) are extra; add one under Additional costs if you use them."
+    },
+    "vestiaire collective": {
+      "name": "Vestiaire Collective",
+      "color": "#2b2b2b",
+      "url": "https://us.vestiairecollective.com",
+      "feePct": 17,
+      "smallThreshold": 75,
+      "smallFlat": 12,
+      "procPct": 3,
+      "procMin": 3,
+      "shipPaidBy": "buyer",
+      "checked": "Nov 2026",
+      "notes": "US, items listed from Oct 15, 2026: under $75 a flat $12 selling fee + $3 processing; $75–$15,000: 17% + 3% processing (over $15,000: flat $2,500 + 3%). Minimum price $18. Each listing keeps the fee in force when you listed it."
+    },
+    "the realreal": {
+      "name": "The RealReal",
+      "color": "#4a4a4a",
+      "url": "https://www.therealreal.com",
+      "feePct": 40,
+      "feeTiers": [
+        {
+          "max": 99.99,
+          "pct": 80
+        },
+        {
+          "max": 149.99,
+          "pct": 70
+        },
+        {
+          "max": 199.99,
+          "pct": 55
+        },
+        {
+          "max": 299.99,
+          "pct": 45
+        }
+      ],
+      "shipPaidBy": "seller",
+      "sellerShipCost": 0,
+      "checked": "Nov 2026",
+      "notes": "Consignment — they price, photograph and ship it. Fee shown is what TRR keeps, based on its published clothing schedule (you earn 20% under $100, 30% $100–149, 45% $150–199, 55% $200–299, 60% $300–749). Rates vary by category and RealReal Rewards tier; promos change them. Check your consignor agreement and edit."
+    },
+    "stockx": {
+      "name": "StockX",
+      "color": "#006340",
+      "url": "https://stockx.com",
+      "feePct": 9,
+      "procPct": 3,
+      "shipPaidBy": "seller",
+      "sellerShipCost": 5,
+      "checked": "Nov 2026",
+      "notes": "Verified Marketplace, Seller Level 1: 9% transaction fee + 3% payment processing on the sale price (Level 2 8.5%, 3 8%, 4 7.5%, 5 7%). US sellers pay a $5 shipping fee per sale. New, unworn items only."
+    },
+    "offerup": {
+      "name": "OfferUp",
+      "color": "#00a87e",
+      "url": "https://offerup.com",
+      "feePct": 0,
+      "shipPaidBy": "varies",
+      "checked": "Nov 2026",
+      "notes": "Local pickup only — OfferUp ended nationwide shipping on Sept 23, 2025, so there are no selling fees. Collect payment at the meetup. Optional paid promotions."
+    },
+    "shopify": {
+      "name": "Shopify",
+      "color": "#5e8e3e",
+      "url": "https://www.shopify.com",
+      "feePct": 0,
+      "procPct": 2.9,
+      "procFixed": 0.3,
+      "procOnShipping": true,
+      "shipPaidBy": "varies",
+      "checked": "Nov 2026",
+      "extras": [
+        {
+          "id": "shp-basic",
+          "label": "Basic plan",
+          "amount": 39,
+          "kind": "month"
+        }
+      ],
+      "notes": "Your own online store. Basic plan $39/month ($29 paid yearly). Shopify Payments: 2.9% + $0.30 per online card sale (3.5% for premium cards, +1% international). Using another payment provider adds 2%."
+    },
+    "in person": {
+      "name": "In person",
+      "color": "#5b6472",
+      "feePct": 0,
+      "shipPaidBy": "varies",
+      "notes": "Cash / local sales."
+    }
+  }
+}
