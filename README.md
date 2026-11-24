@@ -4,6 +4,7 @@ A private, password-protected inventory, ordering and sales tracker that runs en
 
 ## Features
 
+- **Guide tab:** a complete illustrated tutorial in 17 chapters, with a setup checklist that ticks itself off, search, “Mark as read” progress and **Show me** buttons that jump to the right screen and highlight the button to press.
 - **Inventory grid** with every column from the original spreadsheet: Item Name, Category, SKU, Purchase Price, Selling Price, Status, Platform it sold, Date Posted, Days Active (calculated), Date Sold and Total After Fees. It also adds Fees, Shipping Cost, Profit and Notes.
 - **Inline editing:** click any cell to edit it. Tab moves to the next cell, Enter saves, Esc cancels and Ctrl/⌘+Z undoes.
 - **Sorting:** click a header to sort by that column. Shift+click adds more columns to the sort.
@@ -96,6 +97,7 @@ js/charts.js        Lightweight canvas charts
 js/reports.js       Calculations, Excel export and import
 js/celebrate.js     Sale celebration animation (canvas)
 js/labels.js        QR labels and camera scanning
+js/guide.js         The Guide tab (tutorial, checklist, search)
 js/print.js         Branded PDF reports, packing slips and thank-you cards
 js/dash.js          Dashboard drawings (sparklines, rings, calendar, donut)
 fonts/pacifico.woff2  Script font for the wordmark (SIL Open Font License)

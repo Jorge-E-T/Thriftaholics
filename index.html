@@ -102,6 +102,7 @@
       <button class="tab" data-view="expenses" role="tab">Expenses</button>
       <button class="tab" data-view="reports" role="tab">Reports</button>
       <button class="tab" data-view="settings" role="tab">Settings</button>
+      <button class="tab tab-guide" data-view="guide" role="tab"><span aria-hidden="true">📖</span> Guide</button>
     </nav>
 
     <main class="main">
@@ -347,6 +348,9 @@
         <div class="report" id="reportBody"></div>
       </section>
 
+      <!-- GUIDE -->
+      <section class="view" id="view-guide"><div id="guideRoot"></div></section>
+
       <!-- SETTINGS -->
       <section class="view" id="view-settings">
         <div class="view-head"><div><h2>Settings</h2><p class="muted">Business details, thresholds, tax estimates, security and data.</p></div></div>
@@ -503,6 +507,7 @@
   <script src="lib/qrcode.js" defer></script>
   <script src="js/labels.js" defer></script>
   <script src="js/print.js" defer></script>
+  <script src="js/guide.js" defer></script>
   <script src="js/celebrate.js" defer></script>
   <script src="firebase-config.js" defer></script>
   <script src="js/cloud-sync.js" defer></script>
