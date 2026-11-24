@@ -7,10 +7,11 @@
 
   /* ---------------- defaults ---------------- */
   const DEFAULT_SETTINGS = {
-    companyName: 'My Resale Co.',
+    companyName: 'Thriftaholics',
+    theme: 'auto',
     viewMode: 'auto',
     showName: true,
-    tagline: 'Inventory & Sales Ledger',
+    tagline: 'Inventory & Sales',
     currency: 'USD',
     agingDays: 90,
     staleDays: 180,
@@ -42,12 +43,14 @@
     mileageRates: [{ from: '2025-01-01', rate: 0.70 }, { from: '2026-01-01', rate: 0.725 }, { from: '2026-07-01', rate: 0.76 }],
     taxPayments: [], goals: { sales: 0, profit: 0, items: 0 }, taxReminderDays: 21,
     labelFormat: 'avery5160',
+    shopUrl: '', socialHandle: '', slipFormat: 'letter',
+    thankYouMessage: 'Thank you for shopping secondhand with us. We hope you love it!',
     invSort: [{ key: 'datePosted', dir: 'desc' }],
     ordSort: [{ key: 'dateSold', dir: 'desc' }],
     expSort: [{ key: 'date', dir: 'desc' }]
   };
 
-  const state = { items: [], expenses: [], mileage: [], settings: U.clone(DEFAULT_SETTINGS), logo: null, meta: {}, thumbs: {}, selection: new Set(), undo: [] };
+  const state = { items: [], expenses: [], mileage: [], activity: [], settings: U.clone(DEFAULT_SETTINGS), logo: null, meta: {}, thumbs: {}, selection: new Set(), undo: [] };
   const S = () => state.settings;
 
   /* ---------------- persistence ---------------- */
@@ -65,7 +68,8 @@
   const saveSettings = U.debounce(() => { state.settings.updatedAt = Date.now(); persist(() => Store.putVault('settings', state.settings)); if (window.Sync) Sync.changed(); }, 250);
 
   /** Apply item/expense changes with undo support. changes: [{ id, after }] (after=null deletes) */
-  function commit(kind, changes, { undoable = true, label = '' } = {}) {
+  function commit(kind, changes, { undoable = true, label = '', log = true } = {}) {
+    const who = myName();
     const list = kind === 'items' ? state.items : kind === 'mileage' ? state.mileage : state.expenses;
     const before = [];
     const puts = [], dels = [];
@@ -73,10 +77,10 @@
       const idx = list.findIndex((x) => x.id === id);
       before.push({ id, rec: idx >= 0 ? U.clone(list[idx]) : null });
       if (after) {
-        after.updatedAt = Date.now();
+        after.updatedAt = Date.now(); if (log) after.editedBy = who;
         // price history: record every selling-price change (not when undoing)
         if (kind === 'items' && idx >= 0 && undoable && list[idx].sellingPrice !== after.sellingPrice && after.sellingPrice != null && list[idx].sellingPrice != null) {
-          after.priceHistory = [...(after.priceHistory || list[idx].priceHistory || []), { date: U.todayISO(), from: list[idx].sellingPrice, to: after.sellingPrice, reason: after._priceReason || label || 'edit' }].slice(-30);
+          after.priceHistory = [...(after.priceHistory || list[idx].priceHistory || []), { date: U.todayISO(), from: list[idx].sellingPrice, to: after.sellingPrice, reason: after._priceReason || label || 'edit', by: who }].slice(-30);
         }
         delete after._priceReason;
         if (idx >= 0) list[idx] = after; else list.push(after);
@@ -86,6 +90,7 @@
     // deletions are remembered (tombstones) so sync can apply them on other devices
     if (dels.length) { const t = (state.meta.tombstones ||= {}); t[kind] = { ...(t[kind] || {}) }; dels.forEach((id) => { t[kind][id] = Date.now(); }); Store.putVault('tombstones', t).catch(() => {}); }
     puts.forEach((r) => { const t = state.meta.tombstones && state.meta.tombstones[kind]; if (t && t[r.id]) delete t[r.id]; });
+    if (log) logActivity(kind, before, changes, label, who);
     if (window.Sync) Sync.changed();
     if (undoable) { state.undo.push({ kind, before, label }); if (state.undo.length > 50) state.undo.shift(); }
     persist(async () => {
@@ -97,9 +102,144 @@
   function undo() {
     const step = state.undo.pop();
     if (!step) { U.toast('Nothing to undo'); return; }
-    commit(step.kind, step.before.map(({ id, rec }) => ({ id, after: rec ? U.clone(rec) : null })), { undoable: false });
+    commit(step.kind, step.before.map(({ id, rec }) => ({ id, after: rec ? U.clone(rec) : null })), { undoable: false, label: 'undo' + (step.label ? ': ' + step.label : '') });
     renderAll();
     U.toast('Undone' + (step.label ? ': ' + step.label : ''), 'ok');
+  }
+
+
+  /* =========================================================
+     Activity history — who changed what (synced between users)
+     ========================================================= */
+  const ACT_DAYS = 365, ACT_MAX = 3000, ACT_GROUP = 25;
+  const FIELD_LABEL = { name: 'name', category: 'category', sku: 'SKU', purchasePrice: 'cost', sellingPrice: 'price', status: 'status', platform: 'platform', datePosted: 'date listed', dateSold: 'date sold',
+    totalAfterFees: 'after-fees total', shippingCost: 'shipping', notes: 'notes', listings: 'listings', brand: 'brand', size: 'size', color: 'color', condition: 'condition', measurements: 'measurements',
+    weight: 'weight', location: 'location', source: 'source', purchaseDate: 'purchase date', minPrice: 'lowest price', bundle: 'bundle', lastRelisted: 'relisted', disposedDate: 'write-off date',
+    date: 'date', vendor: 'vendor', description: 'description', amount: 'amount', payment: 'payment', purpose: 'purpose', from: 'from', to: 'to', miles: 'miles', roundTrip: 'round trip' };
+  const MONEY_F = new Set(['purchasePrice', 'sellingPrice', 'totalAfterFees', 'shippingCost', 'minPrice', 'amount']);
+  function myName() {
+    const n = (S().yourName || '').trim();
+    if (n) return n;
+    const e = window.Sync && Sync.email && Sync.email();
+    if (e) { const l = e.split('@')[0].replace(/[._\d]+/g, ' ').trim(); return l ? l.charAt(0).toUpperCase() + l.slice(1) : e; }
+    return 'This device';
+  }
+  const recTitle = (kind, r) => !r ? '' : kind === 'items' ? (r.name || (r.sku ? 'SKU ' + r.sku : 'an item')) : kind === 'expenses' ? (r.description || r.vendor || r.category || 'an expense') : `${r.miles || 0} mi trip${r.purpose ? ' (' + r.purpose + ')' : ''}`;
+  const fmtVal = (f, v) => v === null || v === undefined || v === '' ? '—' : MONEY_F.has(f) ? U.money(v) : typeof v === 'boolean' ? (v ? 'yes' : 'no') : Array.isArray(v) ? `${v.length}` : String(v).slice(0, 60);
+  function diffRec(a, b) {
+    const out = [];
+    for (const f of Object.keys(FIELD_LABEL)) {
+      if (!(f in a) && !(f in b)) continue;
+      const x = a[f], y = b[f];
+      if (JSON.stringify(x ?? '') === JSON.stringify(y ?? '')) continue;
+      out.push({ f, from: f === 'listings' ? (x || []).map((l) => l.platform + ':' + l.status).join(', ') : x ?? null, to: f === 'listings' ? (y || []).map((l) => l.platform + ':' + l.status).join(', ') : y ?? null });
+    }
+    return out;
+  }
+  function describe(e) {
+    const what = e.kind === 'items' ? '' : e.kind === 'expenses' ? 'expense ' : 'mileage ';
+    if (e.n) return `${e.label || 'changed'} — ${e.n} ${e.kind === 'items' ? 'items' : e.kind === 'expenses' ? 'expenses' : 'trips'}`;
+    if (e.act === 'added') return `added ${what}“${e.title}”`;
+    if (e.act === 'deleted') return `deleted ${what}“${e.title}”`;
+    const c = e.changes || [];
+    const sold = c.find((x) => x.f === 'status' && x.to === 'sold');
+    if (sold) { const p = c.find((x) => x.f === 'sellingPrice'); return `marked “${e.title}” sold${p ? ' for ' + U.money(p.to) : ''}`; }
+    if (c.length === 1 && c[0].f === 'sellingPrice') return `changed the price of “${e.title}” ${fmtVal('sellingPrice', c[0].from)} → ${fmtVal('sellingPrice', c[0].to)}`;
+    if (c.length === 1) return `changed ${FIELD_LABEL[c[0].f]} of “${e.title}” to ${fmtVal(c[0].f, c[0].to)}`;
+    return `edited ${what}“${e.title}” (${c.slice(0, 3).map((x) => FIELD_LABEL[x.f]).join(', ')}${c.length > 3 ? ` +${c.length - 3}` : ''})`;
+  }
+  function logActivity(kind, before, changes, label, who) {
+    const t = Date.now();
+    const entries = [];
+    if (changes.length > ACT_GROUP) {
+      entries.push({ id: U.uid(), t, who, kind, n: changes.length, label: label || 'bulk change' });
+    } else {
+      changes.forEach(({ id, after }, i) => {
+        const prev = before[i] && before[i].rec;
+        if (!prev && !after) return;
+        const act = !prev ? 'added' : !after ? 'deleted' : 'edited';
+        const e = { id: U.uid(), t, who, kind, rid: id, act, title: recTitle(kind, after || prev), label: label || '' };
+        if (act === 'edited') { e.changes = diffRec(prev, after); if (!e.changes.length) return; }
+        if (prev) { const b = U.clone(prev); delete b.priceHistory; e.before = b; }
+        if (after && act === 'added') e.after = { updatedAt: after.updatedAt };
+        entries.push(e);
+      });
+    }
+    if (!entries.length) return;
+    addActivity(entries);
+  }
+  function addActivity(entries) {
+    const have = new Set(state.activity.map((e) => e.id));
+    entries.forEach((e) => { if (e && e.id && !have.has(e.id)) { state.activity.push(e); have.add(e.id); } });
+    const cut = Date.now() - ACT_DAYS * 864e5;
+    state.activity = state.activity.filter((e) => e.t > cut).sort((a, b) => a.t - b.t).slice(-ACT_MAX);
+    persist(() => Store.putVault('activity', state.activity));
+    if ($('#view-dashboard') && $('#view-dashboard').classList.contains('active')) renderActivityFeed();
+  }
+  function activityFor(id) {
+    return state.activity.filter((e) => e.rid === id).map((e) => ({ t: e.t, by: e.who, text: describe(e), priceOnly: !!(e.changes && e.changes.length && e.changes.every((c) => c.f === 'sellingPrice')) }));
+  }
+  const PALETTE = ['#2a7a70', '#c9952e', '#6b6fa8', '#c2413b', '#3f7fb5', '#8a5a9e'];
+  const whoColor = (n) => PALETTE[[...String(n)].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
+  const avatar = (n) => `<span class="av" style="--av:${whoColor(n)}">${esc(String(n || '?').trim().charAt(0).toUpperCase())}</span>`;
+  function actRow(e, withRevert) {
+    const can = withRevert && !e.n && (e.before || e.act === 'added');
+    const open = e.kind === 'items' && e.rid && findItem(e.rid) ? ` data-sheet="${esc(e.rid)}"` : '';
+    return `<li class="act"${open}>${avatar(e.who)}<div class="act-t"><b>${esc(e.who)}</b> ${esc(describe(e))}${e.label && /^undo|^revert/.test(e.label) ? ` <span class="muted">(${esc(e.label)})</span>` : ''}
+      <span class="act-when" title="${esc(new Date(e.t).toLocaleString())}">${esc(timeAgo(e.t))}</span></div>${can ? `<button class="btn btn-sm btn-ghost" type="button" data-revert="${esc(e.id)}" title="Put this record back the way it was before this change">Revert</button>` : ''}</li>`;
+  }
+  function renderActivityFeed() {
+    const box = $('#activityFeed'); if (!box) return;
+    const list = state.activity.slice(-7).reverse();
+    box.innerHTML = list.length ? `<ul class="acts">${list.map((e) => actRow(e, false)).join('')}</ul>`
+      : Dash.empty('No activity yet', 'Changes you and anyone you sync with make will show up here.', '🕘');
+    if (!(S().yourName || '').trim()) box.insertAdjacentHTML('beforeend', `<p class="muted small act-nudge">Changes made here are labeled “${esc(myName())}”. <button type="button" class="linklike" data-goto-name>Set your name</button></p>`);
+  }
+  async function revertActivity(e) {
+    const kind = e.kind;
+    const list = kind === 'items' ? state.items : kind === 'expenses' ? state.expenses : state.mileage;
+    const cur = list.find((x) => x.id === e.rid);
+    const later = state.activity.filter((x) => x.rid === e.rid && x.t > e.t).length;
+    const msg = e.act === 'added' ? `Remove “${esc(e.title)}” again (undo adding it)?`
+      : e.act === 'deleted' ? `Bring back “${esc(e.title)}”?`
+      : `Put “${esc(e.title)}” back the way it was before ${esc(e.who)}’s change on ${esc(new Date(e.t).toLocaleString())}?`;
+    const warn = later ? `<p class="muted small">⚠️ It was changed ${later} more time${later === 1 ? '' : 's'} after this; those later changes will be replaced too.</p>` : '';
+    if (!(await U.confirm('Revert change', `<p>${msg}</p>${warn}<p class="muted small">You can undo the revert, too.</p>`, 'Revert'))) return false;
+    let after = null;
+    if (e.act !== 'added') {
+      after = U.clone(e.before);
+      if (cur && kind === 'items') after.priceHistory = cur.priceHistory || [];
+    }
+    if (e.act === 'added' && !cur) { U.toast('That record is already gone.'); return false; }
+    commit(kind, [{ id: e.rid, after }], { label: 'revert' });
+    renderAll(); U.toast('Reverted', 'ok', { label: 'Undo', fn: undo });
+    return true;
+  }
+  function openActivityLog() {
+    const people = [...new Set(state.activity.map((e) => e.who))].sort();
+    const body = `<div class="act-filters">
+        <select id="actWho"><option value="">Everyone</option>${people.map((p) => `<option>${esc(p)}</option>`).join('')}</select>
+        <select id="actKind"><option value="">Everything</option><option value="items">Inventory</option><option value="expenses">Expenses</option><option value="mileage">Mileage</option></select>
+        <input type="search" id="actQ" placeholder="Search…"></div>
+      <div id="actList" class="act-scroll"></div>
+      <p class="muted small">Kept for one year. ${window.Sync && Sync.signedIn && Sync.signedIn() ? 'Shared with everyone signed in to your cloud sync.' : 'Turn on cloud sync to share it with your other devices and users.'}</p>`;
+    const draw = (root) => {
+      const who = $('#actWho', root).value, kind = $('#actKind', root).value, q = $('#actQ', root).value.trim().toLowerCase();
+      const rows = state.activity.filter((e) => (!who || e.who === who) && (!kind || e.kind === kind) && (!q || (e.who + ' ' + describe(e)).toLowerCase().includes(q))).slice(-300).reverse();
+      let day = '';
+      $('#actList', root).innerHTML = rows.length ? `<ul class="acts">${rows.map((e) => { const d = new Date(e.t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); const h = d !== day ? `<li class="act-day">${esc(d)}</li>` : ''; day = d; return h + actRow(e, true); }).join('')}</ul>` : Dash.empty('Nothing matches', 'Try another person or filter.', '🔎');
+    };
+    U.modal({ title: 'Activity history', wide: true, body, buttons: [{ label: 'Close', value: null, cls: 'btn-ghost' }], onOpen: (root) => {
+      draw(root);
+      ['#actWho', '#actKind'].forEach((s) => $(s, root).addEventListener('change', () => draw(root)));
+      $('#actQ', root).addEventListener('input', U.debounce(() => draw(root), 120));
+      $('#actList', root).addEventListener('click', async (ev) => {
+        const b = ev.target.closest('[data-revert]'); if (!b) return;
+        ev.stopPropagation();
+        const e = state.activity.find((x) => x.id === b.dataset.revert);
+        if (e) { await revertActivity(e); openActivityLog(); }
+      }, true);
+    } });
   }
 
   /* =========================================================
@@ -313,6 +453,7 @@
         syncCheckAll(); o.onSelect && o.onSelect();
         return;
       }
+      if (o.onOpen && document.documentElement.classList.contains('gallery-mode')) { o.onOpen(o.find(id)); return; }
       if (o.photo && e.target.closest('[data-photo]')) { o.photo.onClick(o.find(id)); return; }
       const act = e.target.closest('[data-act]');
       if (act) { o.actions[+act.dataset.act].fn(o.find(id)); return; }
@@ -472,7 +613,7 @@
       priceHistory: Array.isArray(raw.priceHistory) ? raw.priceHistory.filter((h) => h && h.date) : [],
       markdownStep: +raw.markdownStep || 0, lastMarkdown: U.toISO(raw.lastMarkdown || ''), lastRelisted: U.toISO(raw.lastRelisted || ''),
       disposedDate: U.toISO(raw.disposedDate || ''), decideSnooze: U.toISO(raw.decideSnooze || ''), bundle: !!raw.bundle,
-      createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now()
+      createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now(), editedBy: String(raw.editedBy || '')
     });
     return it;
   }
@@ -488,10 +629,10 @@
   }
   function normalizeTrip(raw) {
     return { id: raw.id || U.uid(), date: U.toISO(raw.date || '') || U.todayISO(), purpose: String(raw.purpose || 'Sourcing'), from: String(raw.from || ''), to: String(raw.to || ''),
-      miles: U.num(raw.miles) ?? 0, roundTrip: !!raw.roundTrip, notes: String(raw.notes || ''), createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now() };
+      miles: U.num(raw.miles) ?? 0, roundTrip: !!raw.roundTrip, notes: String(raw.notes || ''), createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now(), editedBy: String(raw.editedBy || '') };
   }
   function normalizeExpense(raw) {
-    return { id: raw.id || U.uid(), date: U.toISO(raw.date || '') || U.todayISO(), category: String(raw.category || 'Other'), vendor: String(raw.vendor || ''), description: String(raw.description || ''), amount: U.num(raw.amount) ?? 0, payment: String(raw.payment || ''), notes: String(raw.notes || ''), createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now() };
+    return { id: raw.id || U.uid(), date: U.toISO(raw.date || '') || U.todayISO(), category: String(raw.category || 'Other'), vendor: String(raw.vendor || ''), description: String(raw.description || ''), amount: U.num(raw.amount) ?? 0, payment: String(raw.payment || ''), notes: String(raw.notes || ''), createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now(), editedBy: String(raw.editedBy || '') };
   }
   /** Money burst when items become sold (Settings → Business → “Celebrate sales”). */
   function celebrateSale(list) {
@@ -548,6 +689,8 @@
     edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>',
     dup: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/></svg>',
     del: '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>',
+    open: '<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 9h16M8 13h5M8 16h8"/></svg>',
+    camera: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
     back: '<svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg>'
   };
   const statusBadge = (s) => { const k = (s || '').toLowerCase(); return `<span class="badge ${k === 'sold' ? 'b-sold' : k === 'available' ? 'b-available' : 'b-other'}">${esc(s || '—')}</span>`; };
@@ -624,7 +767,9 @@
         if (key === 'platform') addListValue('platforms', v);
         renderCounts();
       },
+      onOpen: (r) => openItemSheet(r),
       actions: [
+        { icon: ICON.open, title: 'Item details', fn: (r) => openItemSheet(r) },
         { icon: ICON.sold, title: 'Mark as sold…', show: (r) => !Calc.isSold(r), fn: (r) => markSoldDialog([r]) },
         { icon: ICON.edit, title: 'Edit all fields', fn: (r) => itemDialog(r) },
         { icon: ICON.dup, title: 'Duplicate', fn: (r) => duplicateItems([r]) },
@@ -660,6 +805,8 @@
       if (a === 'duplicate') duplicateItems(sel);
       if (a === 'price') bulkPriceDialog(sel.filter((x) => !Calc.isSold(x)));
       if (a === 'labels') Labels.print(sel, labelCtx());
+      if (a === 'slips') Print.packingSlip(sel, printCtx());
+      if (a === 'thanks') Print.thankYou(sel, printCtx());
       if (a === 'refreshed') { commit('items', sel.map((it) => ({ id: it.id, after: { ...U.clone(it), lastRelisted: U.todayISO() } })), { label: 'refreshed' }); renderAll(); U.toast(`${sel.length} marked refreshed`, 'ok'); }
       if (a === 'location') {
         const v = await U.prompt('Set storage location', `Location for ${sel.length} item(s)`, { list: uniqVals('location'), placeholder: 'e.g. Bin 4' });
@@ -831,6 +978,115 @@
   }
 
   /* ---------- mark sold dialog (single or bulk) ---------- */
+  /* =========================================================
+     ITEM DETAIL SHEET — photo, money breakdown, price history, timeline
+     ========================================================= */
+  function bestEstimate(it) {
+    const names = [...(it.listings || []).filter((l) => l.status !== 'removed').map((l) => l.platform), it.platform].filter(Boolean);
+    const price = it.sellingPrice || 0;
+    let best = null;
+    names.forEach((n) => { const p = profileFor(n); if (!p) return; const e = Calc.platformEstimate(p, price); const keep = e.payout - (e.sellerShip || 0); if (!best || keep > best.keep) best = { p, e, keep }; });
+    return best;
+  }
+  function moneyFlow(it) {
+    const sold = Calc.isSold(it), price = it.sellingPrice || 0, cost = it.purchasePrice || 0;
+    let fees, ship, label;
+    if (sold) { fees = U.round2(price - Calc.net(it)); ship = it.shippingCost || 0; label = 'Profit'; }
+    else { const b = bestEstimate(it); fees = b ? b.e.fees : 0; ship = b ? (b.e.sellerShip || 0) : (it.shippingCost || 0); label = b ? `Estimated profit on ${b.p.name}` : 'Estimated profit (before fees)'; }
+    const profit = U.round2(price - fees - ship - cost);
+    const steps = [
+      { l: sold ? 'Sold for' : 'Listed at', v: price, kind: 'start' },
+      { l: sold ? 'Platform fees' : 'Estimated fees', v: -fees },
+      { l: 'Your shipping', v: -ship },
+      { l: 'Item cost', v: -cost },
+      { l: label, v: profit, kind: 'end' }
+    ].filter((x) => x.kind || x.v);
+    const max = Math.max(price, Math.abs(profit), 1);
+    let run = 0;
+    const bars = steps.map((x) => {
+      let left, width, cls;
+      if (x.kind === 'start') { left = 0; width = x.v; run = x.v; cls = 'wf-start'; }
+      else if (x.kind === 'end') { left = Math.min(0, x.v); width = Math.abs(x.v); cls = x.v < 0 ? 'wf-neg' : 'wf-end'; }
+      else { run += x.v; left = run; width = -x.v; cls = 'wf-cost'; }
+      return `<div class="wf-row"><span class="wf-l">${esc(x.l)}</span><span class="wf-track"><span class="wf-bar ${cls}" style="left:${(Math.max(0, left) / max * 100).toFixed(2)}%;width:${(width / max * 100).toFixed(2)}%"></span></span><span class="wf-v ${x.v < 0 && x.kind !== 'end' ? 'muted' : x.v < 0 ? 'neg' : ''}">${x.kind || x.v >= 0 ? '' : '−'}${U.money(Math.abs(x.v))}</span></div>`;
+    }).join('');
+    const margin = price ? profit / price : null;
+    return `<div class="wf">${bars}</div><div class="muted small">${margin !== null ? `${U.pct(margin)} of the ${sold ? 'sale' : 'list'} price${cost ? ` · ${U.pct(cost ? profit / cost : 0)} return on cost` : ''}` : ''}</div>`;
+  }
+  function priceChart(it) {
+    const h = (it.priceHistory || []).filter((x) => x.date);
+    if (!h.length) return '';
+    const pts = [{ d: it.datePosted || h[0].date, v: h[0].from }, ...h.map((x) => ({ d: x.date, v: x.to }))];
+    if (Calc.isSold(it) && it.dateSold) pts.push({ d: it.dateSold, v: it.sellingPrice });
+    else pts.push({ d: U.todayISO(), v: it.sellingPrice });
+    const t = pts.map((p) => +U.parseISO(p.d)), v = pts.map((p) => +p.v || 0);
+    const t0 = Math.min(...t), t1 = Math.max(...t, t0 + 1), vmax = Math.max(...v) * 1.15 || 1;
+    const W = 520, H = 120, X = (x) => 8 + (x - t0) / (t1 - t0) * (W - 16), Y = (y) => H - 18 - (y / vmax) * (H - 32);
+    let d = ''; pts.forEach((p, i) => { const x = X(t[i]), y = Y(v[i]); d += i ? ` H${x.toFixed(1)} V${y.toFixed(1)}` : `M${x.toFixed(1)} ${y.toFixed(1)}`; });
+    const dots = pts.map((p, i) => `<circle cx="${X(t[i]).toFixed(1)}" cy="${Y(v[i]).toFixed(1)}" r="3.5"><title>${esc(U.fmtDate(p.d))}: ${esc(U.money(v[i]))}</title></circle><text x="${X(t[i]).toFixed(1)}" y="${(Y(v[i]) - 8).toFixed(1)}" text-anchor="${X(t[i]) > W - 44 ? 'end' : X(t[i]) < 44 ? 'start' : 'middle'}">${esc(U.money0(v[i]))}</text>`).join('');
+    return `<svg class="pchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none"/>${dots}<text x="8" y="${H - 3}" class="ax">${esc(U.fmtDate(pts[0].d))}</text><text x="${W - 8}" y="${H - 3}" text-anchor="end" class="ax">${esc(U.fmtDate(pts[pts.length - 1].d))}</text></svg>`;
+  }
+  function itemTimeline(it) {
+    const ev = [];
+    if (it.purchaseDate) ev.push({ d: it.purchaseDate, i: '🛍️', t: `Bought${it.purchasePrice != null ? ' for ' + U.money(it.purchasePrice) : ''}${it.source ? ' at ' + it.source : ''}` });
+    if (it.datePosted) ev.push({ d: it.datePosted, i: '📸', t: `Listed${it.sellingPrice != null && !(it.priceHistory || []).length ? ' at ' + U.money(it.sellingPrice) : (it.priceHistory || []).length ? ' at ' + U.money(it.priceHistory[0].from) : ''}` });
+    (it.priceHistory || []).forEach((h) => ev.push({ d: h.date, i: h.to < h.from ? '🏷️' : '⬆️', t: `Price ${h.to < h.from ? 'lowered' : 'raised'} ${U.money(h.from)} → ${U.money(h.to)}${h.reason && h.reason !== 'edit' && !/^edit /.test(h.reason) ? ` (${h.reason})` : ''}${h.by ? ' · ' + h.by : ''}` }));
+    if (it.lastRelisted) ev.push({ d: it.lastRelisted, i: '🔁', t: 'Relisted' });
+    if (Calc.isSold(it) && it.dateSold) ev.push({ d: it.dateSold, i: '💰', t: `Sold on ${platformLabel(it.platform) || 'an unknown platform'} for ${U.money(it.sellingPrice)}` });
+    if (typeof activityFor === 'function') activityFor(it.id).filter((a) => !a.priceOnly).forEach((a) => ev.push({ d: U.toISO(new Date(a.t)), at: a.t, i: '👤', t: `${a.by}: ${a.text}`, who: true }));
+    ev.sort((a, b) => (a.d || '').localeCompare(b.d || '') || (a.at || 0) - (b.at || 0));
+    if (!ev.length) return '<div class="muted small">No dates recorded yet.</div>';
+    return `<ol class="tl">${ev.map((e) => `<li class="${e.who ? 'tl-who' : ''}"><span class="tl-i">${e.i}</span><span class="tl-d">${esc(U.fmtDate(e.d))}</span><span class="tl-t">${esc(e.t)}</span></li>`).join('')}</ol>`;
+  }
+  async function openItemSheet(itOrId) {
+    const id = typeof itOrId === 'string' ? itOrId : itOrId && itOrId.id;
+    const it = state.items.find((x) => x.id === id); if (!it) return;
+    let photo = state.thumbs[id] && state.thumbs[id].thumb;
+    try { const ph = await Store.getPhoto(id); if (ph && ph.full) photo = ph.full; } catch (_) { /* thumbnail is fine */ }
+    const sold = Calc.isSold(it), d = Calc.daysActive(it), age = Calc.ageClass(it, S());
+    const facts = [['SKU', it.sku], ['Category', it.category], ['Brand', it.brand], ['Size', it.size], ['Color', it.color], ['Condition', it.condition], ['Location', it.location], ['Bought', it.purchaseDate ? U.fmtDate(it.purchaseDate) : ''], ['Source', it.source]]
+      .filter(([, v]) => v).map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('');
+    const lst = (it.listings || []).filter((l) => l.platform || l.url);
+    const edited = it.editedBy ? `<div class="sh-edited">Last edited by <b>${esc(it.editedBy)}</b>${it.updatedAt ? ' · ' + esc(timeAgo(it.updatedAt)) : ''}</div>` : '';
+    const body = `<div class="sheet">
+      <div class="sh-photo ${photo ? '' : 'none'}">${photo ? `<img src="${photo}" alt="">` : `<button type="button" class="sh-add" data-sh="photo">${ICON.camera || ''}<span>Add a photo</span></button>`}
+        <span class="sh-age age-${age}">${sold ? 'Sold' : d !== null ? d + ' days listed' : 'Not listed yet'}</span></div>
+      <div class="sh-main">
+        <div class="sh-top">${statusBadge(it.status)}${it.bundle ? ' <span class="badge b-other">bundle</span>' : ''}<span class="sh-price">${U.money(it.sellingPrice)}</span></div>
+        <div class="sh-facts">${facts || '<span class="muted small">No details yet — add brand, size and more with Edit.</span>'}</div>
+        ${lst.length ? `<div class="sh-listed">${lst.map((l) => platformTag(l.platform, l.url, l.status)).join('')}</div>` : ''}
+        <div class="sh-actions">
+          <button class="btn btn-primary btn-sm" data-sh="edit">${ICON.edit} Edit all fields</button>
+          ${sold ? `<button class="btn btn-sm" data-sh="slip">Packing slip</button><button class="btn btn-sm" data-sh="thanks">Thank-you card</button>` : `<button class="btn btn-gold btn-sm" data-sh="sold">${ICON.sold} Mark sold</button>`}
+          <button class="btn btn-sm" data-sh="label">QR label</button>
+          <button class="btn btn-sm btn-ghost" data-sh="dup">${ICON.dup} Duplicate</button>
+        </div>
+        ${edited}
+      </div>
+      <div class="sh-card"><h4>Where the money goes</h4>${moneyFlow(it)}</div>
+      <div class="sh-card"><h4>Timeline</h4>${itemTimeline(it)}</div>
+      ${(it.priceHistory || []).length ? `<div class="sh-card sh-wide"><h4>Price history</h4>${priceChart(it)}</div>` : ''}
+      ${it.notes || it.description ? `<div class="sh-card sh-wide"><h4>Notes</h4><div class="sh-notes">${esc(it.description || '')}${it.description && it.notes ? '<br><br>' : ''}${esc(it.notes || '')}</div></div>` : ''}
+    </div>`;
+    const go = await U.modal({
+      title: it.name || 'Item', wide: 'xl', body, buttons: [{ label: 'Close', value: null, cls: 'btn-ghost' }],
+      onOpen: (b) => b.addEventListener('click', (e) => { const a = e.target.closest('[data-sh]'); if (a) U.closeModal(a.dataset.sh); })
+    });
+    if (go === 'edit') itemDialog(it);
+    else if (go === 'sold') markSoldDialog([it]);
+    else if (go === 'dup') duplicateItems([it]);
+    else if (go === 'label') Labels.print([it], labelCtx());
+    else if (go === 'slip' && typeof Print !== 'undefined') Print.packingSlip([it], printCtx());
+    else if (go === 'thanks' && typeof Print !== 'undefined') Print.thankYou([it], printCtx());
+    else if (go === 'photo') { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = async () => { if (inp.files[0]) { await setPhoto(it, inp.files[0]); openItemSheet(it.id); } }; inp.click(); }
+  }
+  function timeAgo(ms) {
+    const s = Math.round((Date.now() - ms) / 1000);
+    if (s < 60) return 'just now'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago';
+    if (s < 86400 * 7) return Math.round(s / 86400) + ' d ago';
+    return U.fmtDate(U.toISO(new Date(ms)));
+  }
+
   async function markSoldDialog(list, { pick = false } = {}) {
     if (!list.length && !pick) { U.toast('No unsold items selected'); return; }
     const single = list.length === 1 || pick;
@@ -1031,8 +1287,9 @@
   /** Table or card view: "auto" = cards on phones, table on computers (saved per device) */
   function applyViewMode() {
     const m = S().viewMode || 'auto';
-    const cards = m === 'cards' || (m !== 'table' && window.matchMedia('(max-width: 720px)').matches);
+    const cards = m === 'cards' || m === 'gallery' || (m !== 'table' && window.matchMedia('(max-width: 720px)').matches);
     document.documentElement.classList.toggle('cards-mode', cards);
+    document.documentElement.classList.toggle('gallery-mode', m === 'gallery');
     document.documentElement.classList.toggle('table-mode', !cards);
   }
   function setupResizable(wrap, key, { rows = false } = {}) {
@@ -1044,7 +1301,7 @@
       <span class="rz-label rz-h">Window</span>
       <div class="seg rz-h">${[['fit', 'Fit screen'], ['s', 'Small'], ['m', 'Medium'], ['l', 'Large']].map(([k, l]) => `<button type="button" data-h="${k}">${l}</button>`).join('')}</div>
       ${rows ? `<span class="rz-label rz-h rz-rows">Rows</span><div class="seg rz-h rz-rows">${[['compact', 'Compact'], ['comfortable', 'Comfortable'], ['large', 'Large']].map(([k, l]) => `<button type="button" data-rows="${k}">${l}</button>`).join('')}</div>
-      <span class="rz-label">View</span><div class="seg">${[['auto', 'Auto', 'Cards on phones, table on computers'], ['table', '☰ Table', 'Spreadsheet-style rows'], ['cards', '▦ Cards', 'Tap-to-open cards, like the phone app']].map(([k, l, t]) => `<button type="button" data-viewmode="${k}" title="${t}">${l}</button>`).join('')}</div>` : ''}`;
+      <span class="rz-label">View</span><div class="seg">${[['auto', 'Auto', 'Cards on phones, table on computers'], ['table', '☰ Table', 'Spreadsheet-style rows'], ['cards', '▦ Cards', 'Tap-to-open cards, like the phone app'], ...(key === 'inv' ? [['gallery', '▣ Gallery', 'Photo grid — tap a photo for the full item page']] : [])].map(([k, l, t]) => `<button type="button" data-viewmode="${k}" title="${t}">${l}</button>`).join('')}</div>` : ''}`;
     wrap.after(bar);
     const save = (v) => { S().tableHeights = { ...(S().tableHeights || {}), [key]: v }; saveSettings(); applyHeights(); };
     bar.addEventListener('click', (e) => {
@@ -1676,7 +1933,9 @@
   /* =========================================================
      LABELS, SCANNING, LINKS TO ITEMS
      ========================================================= */
-  const labelCtx = () => ({ format: S().labelFormat || 'avery5160', money: U.money, platformLabel });
+  const logoURL = () => (state.logo && state.logo.dataURL) || '';
+  const labelCtx = () => ({ format: S().labelFormat || 'avery5160', money: U.money, platformLabel, logo: logoURL(), company: S().companyName || 'Thriftaholics' });
+  const printCtx = () => ({ items: state.items, expenses: state.expenses, mileage: state.mileage, settings: S(), platformLabel, logo: logoURL(), company: S().companyName || 'Thriftaholics' });
   function openItemFromCode(text) {
     const q = Labels.parse(text);
     const it = q.id ? findItem(q.id) : state.items.find((i) => String(i.sku).toLowerCase() === String(q.sku || '').toLowerCase());
@@ -1796,7 +2055,7 @@
     const r = U.rangePreset('month');
     const m = Calc.metrics(state.items, state.expenses, S(), r.from, r.to, state.mileage);
     const t = new Date(), dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(), pace = t.getDate() / dim;
-    const bar = (label, val, goal, fmt) => { const p = goal ? Math.min(1, val / goal) : 0; const ahead = goal && val / goal >= pace; return `<div class="goal"><div class="goal-top"><span>${label}</span><span><b>${fmt(val)}</b> / ${fmt(goal)}</span></div><div class="goal-track"><div class="goal-fill ${ahead ? 'ok' : ''}" style="width:${(p * 100).toFixed(1)}%"></div><div class="goal-pace" style="left:${(pace * 100).toFixed(1)}%" title="Where you’d be on an even pace"></div></div><div class="muted small">${goal ? (val >= goal ? '🎉 Goal reached!' : `${fmt(Math.max(0, goal - val))} to go · ${ahead ? 'ahead of' : 'behind'} pace`) : ''}</div></div>`; };
+    const bar = (label, val, goal, fmt) => { const f = goal ? val / goal : 0; const ahead = goal && f >= pace; const col = f >= 1 ? 'var(--sold)' : ahead ? 'var(--ink-3)' : 'var(--aging)'; return `<div class="goal goal-r">${Dash.ring(f, col, pace)}<div><div class="goal-label">${label}</div><div class="goal-val"><b>${fmt(val)}</b> <span class="muted">of ${fmt(goal)}</span></div><div class="muted small">${goal ? (val >= goal ? '🎉 Goal reached!' : `${fmt(Math.max(0, goal - val))} to go · ${ahead ? 'ahead of' : 'behind'} pace`) : ''}</div></div></div>`; };
     el.innerHTML = (g.sales || g.profit || g.items)
       ? `<div class="card goals"><div class="card-head"><h3>${t.toLocaleDateString(undefined, { month: 'long' })} goals</h3><span class="muted small">day ${t.getDate()} of ${dim} · <button class="linklike" data-goto="settings">edit goals</button></span></div><div class="goal-grid">
           ${g.sales ? bar('Gross sales', m.gross, g.sales, U.money0) : ''}${g.profit ? bar('Net profit', m.netProfit, g.profit, U.money0) : ''}${g.items ? bar('Items sold', m.soldCount, g.items, (n) => U.int(n)) : ''}</div></div>`
@@ -1828,6 +2087,7 @@
     const g = S().goals || {}; $('#goalSales').value = g.sales || ''; $('#goalProfit').value = g.profit || ''; $('#goalItems').value = g.items || '';
     $('#mileRates').innerHTML = (S().mileageRates || []).slice().sort((a, b) => a.from.localeCompare(b.from)).map((r, i) => `<div class="md-step" data-r="${i}">From <input type="date" data-k="from" value="${esc(r.from)}"> rate $<input data-k="rate" inputmode="decimal" value="${r.rate}"> per mile <button type="button" class="btn btn-sm btn-ghost" data-rate-del>✕</button></div>`).join('');
     $('#setTaxRemind').value = S().taxReminderDays; $('#setBackupRemind').value = S().backupReminderDays; $('#setLabelFmt').value = S().labelFormat || 'avery5160';
+    $('#setShopUrl').value = S().shopUrl || ''; $('#setSocial').value = S().socialHandle || ''; $('#setThanksMsg').value = S().thankYouMessage || ''; $('#setSlipFmt').value = S().slipFormat || 'letter';
   }
   function setupPlanSettings() {
     $('#setLabelFmt').innerHTML = Object.entries(Labels.FORMATS).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
@@ -1848,6 +2108,8 @@
     $('#setTaxRemind').addEventListener('change', (e) => { S().taxReminderDays = Math.max(0, parseInt(e.target.value, 10) || 0); saveSettings(); renderBanner(); });
     $('#setBackupRemind').addEventListener('change', (e) => { S().backupReminderDays = Math.max(0, parseInt(e.target.value, 10) || 0); saveSettings(); renderBanner(); });
     $('#setLabelFmt').addEventListener('change', (e) => { S().labelFormat = e.target.value; saveSettings(); });
+    [['#setShopUrl', 'shopUrl'], ['#setSocial', 'socialHandle'], ['#setThanksMsg', 'thankYouMessage'], ['#setSlipFmt', 'slipFormat']].forEach(([sel, k]) =>
+      $(sel).addEventListener('change', (e) => { let v = e.target.value.trim(); if (k === 'shopUrl' && v && !/^https?:\/\//i.test(v)) v = 'https://' + v; S()[k] = v; e.target.value = v; saveSettings(); }));
     $('#banner').addEventListener('click', (e) => {
       const b = e.target.closest('[data-ban]'); if (!b) return;
       if (b.dataset.ban === 'backup') exportJSON().then(renderBanner);
@@ -1870,7 +2132,7 @@
     takeSnapshot: (r) => takeSnapshot(r),
     async snapshot() {
       const live = new Set(state.items.map((i) => i.id));
-      return { questionAnswers: await Store.getQuestionAnswers().catch(() => null), items: state.items, expenses: state.expenses, mileage: state.mileage, settings: state.settings, tombstones: state.meta.tombstones || {}, logo: state.logo,
+      return { questionAnswers: await Store.getQuestionAnswers().catch(() => null), items: state.items, expenses: state.expenses, mileage: state.mileage, settings: state.settings, tombstones: state.meta.tombstones || {}, logo: state.logo, activity: state.activity,
         photos: Object.fromEntries(Object.entries(state.thumbs).filter(([id]) => live.has(id)).map(([id, t]) => [id, { thumb: t.thumb, w: t.w, h: t.h }])) };
     },
     async apply(m) {
@@ -1879,7 +2141,7 @@
         state.items = (m.items || []).map(normalizeItem); state.expenses = (m.expenses || []).map(normalizeExpense); state.mileage = (m.mileage || []).map(normalizeTrip);
         state.settings = { ...U.clone(DEFAULT_SETTINGS), ...m.settings }; state.logo = m.logo || state.logo;
         state.meta.tombstones = m.tombstones || {};
-        await Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage }, photos: null });
+        await Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage, activity: state.activity }, photos: null });
         for (const [id, ph] of Object.entries(m.photos || {})) {
           if (!state.thumbs[id] && ph && ph.thumb) { await Store.putPhoto(id, { thumb: ph.thumb, full: ph.thumb, w: ph.w, h: ph.h }); state.thumbs[id] = { thumb: ph.thumb, w: ph.w, h: ph.h }; }
         }
@@ -1895,7 +2157,7 @@
     try {
       if (a.wipe) {
         const ids = { items: state.items.map((x) => x.id), expenses: state.expenses.map((x) => x.id) };
-        state.items = []; state.expenses = []; state.mileage = []; state.meta.tombstones = {}; state.selection.clear();
+        state.items = []; state.expenses = []; state.mileage = []; state.meta.tombstones = {}; state.selection.clear(); state.activity = []; await Store.putVault('activity', []);
         const photoIds = Object.keys(state.thumbs); state.thumbs = {};
         await Store.deleteMany('items', ids.items); await Store.deleteMany('expenses', ids.expenses); await Store.putVault('mileage', []);
         if (photoIds.length) await Store.deletePhotos(photoIds);
@@ -1915,11 +2177,12 @@
         else { if (puts.length) await Store.putMany(kind, puts); if (k.del.length) await Store.deleteMany(kind, k.del.map((d) => d.id)); }
       }
       await Store.putVault('tombstones', t);
-      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'viewMode', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
+      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
       if ('logo' in a) { state.logo = a.logo || null; await Store.putVault('logo', state.logo); }
       for (const p of a.photos.put) { await Store.putPhoto(p.id, { thumb: p.thumb, full: p.thumb, w: p.w, h: p.h }); state.thumbs[p.id] = { thumb: p.thumb, w: p.w, h: p.h }; }
       if (a.photos.del.length) { a.photos.del.forEach((id) => delete state.thumbs[id]); await Store.deletePhotos(a.photos.del); }
       if (a.recovery && password) await syncApi.adoptRecovery(a.recovery, password);
+      if (a.activity && a.activity.length) addActivity(a.activity);
       state.undo = [];
       applySettingsToUI(); renderLogo(); renderAll();
     } finally { syncApplying = false; }
@@ -1997,6 +2260,7 @@
       rowClass: () => 'r-sold', footer: true, emptyText: 'No sales yet. Click “+ Record sale” or use the ✓ button on any inventory row.',
       onEdit: (r, key, v) => { updateItem(r, { [key]: v }, 'edit sale'); renderOrderKpis(); renderCounts(); },
       actions: [
+        { icon: ICON.open, title: 'Details, packing slip & thank-you card', fn: (r) => openItemSheet(r) },
         { icon: ICON.edit, title: 'Edit all fields', fn: (r) => itemDialog(r) },
         { icon: ICON.back, title: 'Return to inventory (undo sale)', fn: (r) => { commit('items', [{ id: r.id, after: { ...U.clone(r), status: 'available', dateSold: '', platform: '', totalAfterFees: null, listings: (r.listings || []).map((l) => (l.status === 'sold' ? { ...l, status: 'active', statusDate: U.todayISO() } : l)) } }], { label: 'return to inventory' }); renderAll(); U.toast('Returned to inventory', '', { label: 'Undo', fn: undo }); } },
         { icon: ICON.del, title: 'Delete', cls: 'del', fn: (r) => deleteItems([r]) }
@@ -2102,9 +2366,10 @@
   /* =========================================================
      DASHBOARD
      ========================================================= */
-  function kpi(label, value, sub, accent, neg) {
-    return `<div class="kpi" style="--accent:${accent}"><div class="kpi-label">${esc(label)}</div><div class="kpi-value ${neg ? 'neg' : ''}">${value}</div><div class="kpi-sub">${sub || '&nbsp;'}</div></div>`;
+  function kpi(label, value, sub, accent, neg, x = {}) {
+    return `<div class="kpi" style="--accent:${accent}"><div class="kpi-top"><div class="kpi-label">${esc(label)}</div>${x.delta || ''}</div><div class="kpi-value ${neg ? 'neg' : ''}" ${x.count !== undefined ? `data-count="${x.count}" data-fmt="${x.fmt || 'money'}"` : ''}>${value}</div><div class="kpi-sub">${sub || '&nbsp;'}</div>${x.spark || ''}</div>`;
   }
+  let dashAnimated = false;
   function renderDashboard() {
     renderGoals();
     const r = U.rangePreset($('#dashRange').value);
@@ -2112,16 +2377,32 @@
     const m = Calc.metrics(state.items, state.expenses, S(), r.from, r.to, state.mileage);
     const stock = state.items.filter((i) => Calc.isAsset(i, ''));
     const stale = stock.filter((i) => Calc.ageClass(i, S()) === 'stale');
+    // compare with the period before (same length); "all time" compares the last 30 days with the 30 before
+    const today = U.todayISO(), shift = (iso, d) => { const x = U.parseISO(iso); x.setDate(x.getDate() + d); return U.toISO(x); };
+    let cur = m, prevM, cmpLabel;
+    if (r.from) {
+      const len = U.daysBetween(r.from, r.to || today) + 1;
+      prevM = Calc.metrics(state.items, state.expenses, S(), shift(r.from, -len), shift(r.from, -1), state.mileage);
+      cmpLabel = `vs the ${len} days before`;
+    } else {
+      cur = Calc.metrics(state.items, state.expenses, S(), shift(today, -29), today, state.mileage);
+      prevM = Calc.metrics(state.items, state.expenses, S(), shift(today, -59), shift(today, -30), state.mileage);
+      cmpLabel = 'last 30 days vs the 30 before';
+    }
+    const twelve = Calc.monthly(state.items, state.expenses, U.toISO(new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1)), today);
+    const sp = (k, c) => Dash.spark(twelve.map((x) => x[k]), c);
+    const dl = (k) => Dash.delta(cur[k], prevM[k], cmpLabel);
     $('#kpis').innerHTML = [
-      kpi('Gross sales', U.money0(m.gross), `${m.soldCount} item${m.soldCount === 1 ? '' : 's'} sold`, 'var(--sold)'),
-      kpi('Net after fees', U.money0(m.net), `${U.money0(m.fees)} in fees`, 'var(--ink-3)'),
-      kpi('Net profit', U.money0(m.netProfit), `After ${U.money0(m.cogs + m.shipping)} COGS/shipping & ${U.money0(m.expenseTotal)} expenses`, m.netProfit < 0 ? 'var(--danger)' : 'var(--gold-2)', m.netProfit < 0),
-      kpi('Est. taxes', U.money0(m.totalTax), `${U.money0(m.afterTax)} after tax`, 'var(--pending)'),
-      kpi('Inventory at cost', U.money0(m.invCost), `${m.assets.length} items in stock (asset)`, 'var(--fresh)'),
-      kpi('Inventory at list', U.money0(m.invRetail), `${U.money0(m.invPotential)} potential profit`, 'var(--ink)'),
-      kpi('Sell-through', U.pct(m.sellThrough), m.avgDaysToSell === null ? '' : `${U.int(m.avgDaysToSell)} avg days to sell`, 'var(--aging)'),
-      kpi('Stale items', U.int(stale.length), `${S().staleDays}+ days · ${U.money0(stale.reduce((a, i) => a + (i.purchasePrice || 0), 0))} at cost`, 'var(--stale)', false)
+      kpi('Gross sales', U.money0(m.gross), `${m.soldCount} item${m.soldCount === 1 ? '' : 's'} sold`, 'var(--sold)', false, { delta: dl('gross'), spark: sp('gross', 'var(--sold)'), count: m.gross }),
+      kpi('Net after fees', U.money0(m.net), `${U.money0(m.fees)} in fees`, 'var(--ink-3)', false, { delta: dl('net'), spark: sp('net', 'var(--ink-3)'), count: m.net }),
+      kpi('Net profit', U.money0(m.netProfit), `After ${U.money0(m.cogs + m.shipping)} COGS/shipping & ${U.money0(m.expenseTotal)} expenses`, m.netProfit < 0 ? 'var(--danger)' : 'var(--gold-2)', m.netProfit < 0, { delta: dl('netProfit'), spark: sp('profit', 'var(--gold-2)'), count: m.netProfit }),
+      kpi('Est. taxes', U.money0(m.totalTax), `${U.money0(m.afterTax)} after tax`, 'var(--pending)', false, { count: m.totalTax }),
+      kpi('Inventory at cost', U.money0(m.invCost), `${m.assets.length} items in stock (asset)`, 'var(--fresh)', false, { count: m.invCost }),
+      kpi('Inventory at list', U.money0(m.invRetail), `${U.money0(m.invPotential)} potential profit`, 'var(--ink)', false, { count: m.invRetail }),
+      kpi('Sell-through', U.pct(m.sellThrough), m.avgDaysToSell === null ? '' : `${U.int(m.avgDaysToSell)} avg days to sell`, 'var(--aging)', false, { delta: dl('soldCount'), spark: sp('count', 'var(--aging)') }),
+      kpi('Stale items', U.int(stale.length), `${S().staleDays}+ days · ${U.money0(stale.reduce((a, i) => a + (i.purchasePrice || 0), 0))} at cost`, 'var(--stale)', false, { count: stale.length, fmt: 'int' })
     ].join('');
+    if (!dashAnimated) { dashAnimated = true; Dash.countUp($('#kpis')); }
 
     const mon = Calc.monthly(state.items, state.expenses, r.from, r.to);
     $('#chartRangeLabel').textContent = mon.length ? `${mon[0].label} – ${mon[mon.length - 1].label}` : '';
@@ -2129,7 +2410,23 @@
 
     const byP = {};
     m.sold.forEach((i) => { const p = i.platform || 'unspecified'; byP[p] ||= { g: 0, n: 0 }; byP[p].g += i.sellingPrice || 0; byP[p].n++; });
-    Charts.hbars($('#platformBars'), Object.entries(byP).sort((a, b) => b[1].g - a[1].g).map(([name, v]) => ({ name, value: v.g, sub: `${v.n} sold` })), U.money0);
+    $('#platformDonut').innerHTML = Dash.donut(Object.entries(byP).sort((a, b) => b[1].g - a[1].g).map(([name, v]) => ({ name: platformLabel(name) || 'Unspecified', value: v.g, sub: ` · ${v.n} sold`, color: platformColor(name) || '#8a938f' })), U.money0);
+
+    // sales calendar (always the last 12 months)
+    const daily = {};
+    state.items.forEach((i) => { if (Calc.isSold(i) && i.dateSold) { const d = (daily[i.dateSold] ||= { g: 0, n: 0 }); d.g += i.sellingPrice || 0; d.n++; } });
+    const cal = Dash.calendar(daily, U.money0);
+    $('#salesCal').innerHTML = cal.svg;
+    $('#calSum').textContent = cal.days ? `${cal.days} selling day${cal.days === 1 ? '' : 's'} · ${U.money0(cal.total)} in the last 12 months${cal.best ? ` · best day ${U.fmtDate(cal.best.iso)} (${U.money0(cal.best.g)})` : ''}` : 'No sales in the last 12 months yet';
+    requestAnimationFrame(() => { const sc = $('#salesCal'); if (sc) sc.scrollLeft = sc.scrollWidth; });
+
+    // best sellers with photos
+    const best = [...m.sold].map((i) => ({ i, p: Calc.profit(i) })).filter((x) => x.p !== null).sort((a, b) => b.p - a.p).slice(0, 12);
+    $('#bestStrip').innerHTML = best.length ? best.map(({ i, p }, n) => { const th = state.thumbs[i.id]; const d = Calc.daysActive(i); return `<button type="button" class="best" data-sheet="${esc(i.id)}" style="--d:${n * 40}ms">
+        <span class="best-ph">${th ? `<img src="${th.thumb}" alt="">` : '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2h6l2 2h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>'}<span class="best-rank">${n + 1}</span></span>
+        <span class="best-name">${esc(i.name)}</span>
+        <span class="best-meta"><b class="${p < 0 ? 'neg' : 'pos'}">${p >= 0 ? '+' : ''}${U.money0(p)}</b> profit</span>
+        <span class="best-meta">${U.money0(i.sellingPrice)} · ${esc(platformLabel(i.platform) || '—')}${d !== null ? ` · ${d} d` : ''}</span></button>`; }).join('') : Dash.empty('No sales in this period yet', 'Your most profitable sales will show up here, with their photos.', 'tag');
 
     const buckets = [
       { l: '0–30 d', min: 0, max: 30 }, { l: '31–60 d', min: 31, max: 60 }, { l: '61–90 d', min: 61, max: 90 },
@@ -2142,7 +2439,8 @@
     $('#agingBars').innerHTML = buckets.map((b) => `<div class="aging-col"><span class="aging-n">${b.n}</span><div class="aging-bar" style="height:${(b.n / bmax * 140).toFixed(0)}px;background:${colorFor(b)}"></div><span class="aging-l">${b.l}</span></div>`).join('');
 
     const staleSorted = [...stale].sort((a, b) => (Calc.daysActive(b) || 0) - (Calc.daysActive(a) || 0)).slice(0, 7);
-    $('#staleList').innerHTML = staleSorted.length ? staleSorted.map((i) => `<div class="mini-row" data-goto-item="${esc(i.id)}"><div><div class="mini-name">${esc(i.name)}</div><div class="mini-meta">${esc(i.category || '')} · SKU ${esc(i.sku || '—')} · listed ${U.fmtDate(i.datePosted)}</div></div><div class="mini-right"><span class="age age-stale">${U.int(Calc.daysActive(i))} d</span><div class="mini-meta">${U.money(i.sellingPrice)}</div></div></div>`).join('') : '<div class="empty">Nothing stale — nice work.</div>';
+    const mini = (i) => { const th = state.thumbs[i.id]; return `<span class="mini-ph">${th ? `<img src="${th.thumb}" alt="">` : ''}</span>`; };
+    $('#staleList').innerHTML = staleSorted.length ? staleSorted.map((i) => `<div class="mini-row" data-sheet="${esc(i.id)}">${mini(i)}<div class="mini-main"><div class="mini-name">${esc(i.name)}</div><div class="mini-meta">${esc(i.category || '')} · SKU ${esc(i.sku || '—')} · listed ${U.fmtDate(i.datePosted)}</div></div><div class="mini-right"><span class="age age-stale">${U.int(Calc.daysActive(i))} d</span><div class="mini-meta">${U.money(i.sellingPrice)}</div></div></div>`).join('') : Dash.empty('Nothing stale — nice work!', 'Items listed longer than your stale limit show up here.', 'spark');
 
     const byC = {};
     state.items.forEach((i) => { const c = i.category || 'uncategorized'; byC[c] ||= { stock: 0, cost: 0, list: 0, sold: 0, profit: 0 }; if (Calc.isSold(i)) { byC[c].sold++; byC[c].profit += Calc.profit(i) || 0; } else if (Calc.isAsset(i, '')) { byC[c].stock++; byC[c].cost += i.purchasePrice || 0; byC[c].list += i.sellingPrice || 0; } });
@@ -2150,7 +2448,8 @@
     $('#categoryTable').innerHTML = cr.length ? `<table class="pl"><tr class="hdr"><td>Category</td><td style="text-align:right">In stock</td><td style="text-align:right">Cost</td><td style="text-align:right">List value</td><td style="text-align:right">Sold</td><td>Profit</td></tr>${cr.map(([c, v]) => `<tr><td style="text-transform:capitalize">${esc(c)}</td><td style="text-align:right">${v.stock}</td><td style="text-align:right">${U.money0(v.cost)}</td><td style="text-align:right">${U.money0(v.list)}</td><td style="text-align:right">${v.sold}</td><td class="${v.profit < 0 ? 'neg' : ''}">${U.money0(v.profit)}</td></tr>`).join('')}</table>` : '<div class="empty">No items yet</div>';
 
     const recent = state.items.filter(Calc.isSold).sort((a, b) => (b.dateSold || '').localeCompare(a.dateSold || '')).slice(0, 7);
-    $('#recentSales').innerHTML = recent.length ? recent.map((i) => { const p = Calc.profit(i); return `<div class="mini-row" data-goto-item="${esc(i.id)}"><div><div class="mini-name">${esc(i.name)}</div><div class="mini-meta">${U.fmtDate(i.dateSold)} · ${esc(i.platform || '—')}</div></div><div class="mini-right">${U.money(i.sellingPrice)}<div class="mini-meta ${p < 0 ? 'neg' : 'pos'}">${p === null ? '' : (p >= 0 ? '+' : '') + U.money(p)}</div></div></div>`; }).join('') : '<div class="empty">No sales yet</div>';
+    $('#recentSales').innerHTML = recent.length ? recent.map((i) => { const p = Calc.profit(i); return `<div class="mini-row" data-sheet="${esc(i.id)}">${mini(i)}<div class="mini-main"><div class="mini-name">${esc(i.name)}</div><div class="mini-meta">${U.fmtDate(i.dateSold)} · ${esc(i.platform || '—')}</div></div><div class="mini-right">${U.money(i.sellingPrice)}<div class="mini-meta ${p < 0 ? 'neg' : 'pos'}">${p === null ? '' : (p >= 0 ? '+' : '') + U.money(p)}</div></div></div>`; }).join('') : Dash.empty('No sales yet', 'Mark an item sold and it appears here.', 'tag');
+    if (typeof renderActivityFeed === 'function') renderActivityFeed();
   }
 
   /* =========================================================
@@ -2291,13 +2590,14 @@
       }
       state.undo = []; state.selection.clear();
       await persist(async () => {
-        await Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage }, photos: choice === 'replace' ? (data.photos || null) : null });
+        await Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage, activity: state.activity }, photos: choice === 'replace' ? (data.photos || null) : null });
         if (choice === 'merge' && data.photos) for (const [pid, ph] of Object.entries(data.photos)) if (ph && ph.thumb) await Store.putPhoto(pid, { ...ph, full: ph.full || ph.thumb });
         state.thumbs = (await Store.loadAll()).thumbs;
       });
       S().listingsMigrated = false;
       const moved = migrateListings();
       applySettingsToUI(); renderAll();
+      addActivity([{ id: U.uid(), t: Date.now(), who: myName(), kind: 'items', n: items.length, label: choice === 'replace' ? 'restored a backup (replace all)' : 'restored a backup (merge)' }]);
       U.toast(`Restored ${items.length} items and ${expenses.length} expenses (${choice})`, 'ok');
       if (window.Sync) Sync.changed();
     } catch (e) { console.error(e); U.toast('Import failed: ' + e.message, 'err'); }
@@ -2476,7 +2776,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.24';
+  const APP_VERSION = '2026.11.24b';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -2514,7 +2814,7 @@
     state.settings = { ...U.clone(DEFAULT_SETTINGS), ...U.clone(sn.settings), sync: S().sync };
     markReplaced(prev);
     state.undo = []; state.selection.clear();
-    await persist(() => Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage }, photos: null }));
+    await persist(() => Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage, activity: state.activity }, photos: null }));
     applySettingsToUI(); renderAll(); renderSnapshots();
     U.toast('Snapshot restored', 'ok');
     if (window.Sync) Sync.changed();
@@ -2542,7 +2842,7 @@
       changes.push({ id: it.id, after: { ...U.clone(it), listings: splitPlatforms(it.platform).map((p) => ({ platform: p, url: '' })) } });
     });
     S().listingsMigrated = true; saveSettings();
-    if (changes.length) commit('items', changes, { undoable: false });
+    if (changes.length) commit('items', changes, { undoable: false, log: false });
     return changes.length;
   }
 
@@ -2574,7 +2874,18 @@
   /* =========================================================
      SETTINGS
      ========================================================= */
+  /** Light / dark / auto — saved per device (also kept outside the encrypted data so the lock screen matches) */
+  function applyTheme() {
+    const t = (state.settings && S().theme) || 'auto';
+    const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const before = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    try { localStorage.setItem('thrift-theme', t); } catch (_) { /* ignore */ }
+    const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', dark ? '#0f2a27' : '#164e47');
+    if (before !== document.documentElement.getAttribute('data-theme') && Store.unlocked && currentView() === 'dashboard') renderDashboard();
+  }
   function applySettingsToUI() {
+    applyTheme();
     if (ensurePlatformProfiles()) saveSettings();
     if (!S().colsV3) { S().hiddenCols = uniq([...(S().hiddenCols || []), 'minPrice', 'color', 'condition', 'measurements', 'weight', 'source', 'purchaseDate']); S().colsV3 = true; saveSettings(); }
     U.setCurrency(S().currency);
@@ -2587,7 +2898,7 @@
   }
   function renderSettings() {
     const s = S();
-    $('#setCompany').value = s.companyName; $('#setTagline').value = s.tagline || ''; $('#setShowName').checked = s.showName !== false; $('#setCurrency').value = s.currency;
+    $('#setCompany').value = s.companyName; $('#setTagline').value = s.tagline || ''; $('#setShowName').checked = s.showName !== false; $('#setYourName').value = s.yourName || ''; $('#setTheme').value = s.theme || 'auto'; $('#setCurrency').value = s.currency;
     $('#setAging').value = s.agingDays; $('#setStale').value = s.staleDays;
     $('#setCategories').value = s.categories.join(', ');
     $('#setStatuses').value = s.statuses.join(', '); $('#setExpCats').value = s.expenseCategories.join(', ');
@@ -2607,6 +2918,15 @@
     bind('#setCompany', 'companyName', (v) => v.trim() || 'My Company');
     bind('#setTagline', 'tagline', (v) => v.trim());
     bind('#setShowName', 'showName');
+    $('#setYourName').addEventListener('change', (e) => { S().yourName = e.target.value.trim(); saveSettings(); renderActivityFeed(); });
+    $('#btnAllActivity').addEventListener('click', openActivityLog);
+    $('#activityFeed').addEventListener('click', (e) => { if (!e.target.closest('[data-goto-name]')) return; showView('settings'); setTimeout(() => { $('#setYourName').scrollIntoView({ block: 'center' }); $('#setYourName').focus(); }, 80); });
+    $('#setTheme').addEventListener('change', (e) => { S().theme = e.target.value; saveSettings(); applyTheme(); });
+    $('#btnTheme').addEventListener('click', () => {
+      S().theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      saveSettings(); applyTheme(); $('#setTheme').value = S().theme;
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if ((S().theme || 'auto') === 'auto') applyTheme(); });
     bind('#setCurrency', 'currency');
     bind('#setAging', 'agingDays', (v) => Math.max(1, parseInt(v, 10) || 90));
     bind('#setStale', 'staleDays', (v) => Math.max(1, parseInt(v, 10) || 180));
@@ -2739,7 +3059,7 @@
     state.items = []; state.expenses = []; state.mileage = []; state.logo = null; state.thumbs = {}; state.undo = []; state.selection.clear();
     if (window.Sync) Sync.lock();
     ['#invTable', '#ordTable', '#expTable'].forEach((t) => { $(t).tHead.innerHTML = ''; $(t).tBodies[0].innerHTML = ''; $(t).tFoot.innerHTML = ''; });
-    ['#kpis', '#reportBody', '#staleList', '#recentSales', '#categoryTable', '#platformBars', '#expByCat', '#ordKpis'].forEach((s) => ($(s).innerHTML = ''));
+    ['#kpis', '#reportBody', '#staleList', '#recentSales', '#categoryTable', '#platformDonut', '#salesCal', '#bestStrip', '#activityFeed', '#expByCat', '#ordKpis'].forEach((s) => { const el = $(s); if (el) el.innerHTML = ''; }); state.activity = [];
     $('#app').classList.add('hidden');
     showLock('unlock', msg);
   }
@@ -2790,6 +3110,7 @@
       state.thumbs = data.thumbs || {}; // photos of removed items are kept, so a snapshot restore brings them back
       state.meta = { lastBackup: data.meta.lastBackup || null, snapshots: Array.isArray(data.meta.snapshots) ? data.meta.snapshots : [], appVersion: data.meta.appVersion || null, tombstones: data.meta.tombstones || {} };
       state.mileage = (Array.isArray(data.meta.mileage) ? data.meta.mileage : []).map(normalizeTrip);
+      state.activity = Array.isArray(data.meta.activity) ? data.meta.activity : [];
       if (state.meta.appVersion !== APP_VERSION) {
         await takeSnapshot(`Automatic, before first use of app version ${APP_VERSION}`);
         state.meta.appVersion = APP_VERSION;
@@ -2947,12 +3268,28 @@
       if (gf) { $('#btnClearFilters').click(); $('#fAge').value = gf.dataset.gotoFilter; showView('inventory'); return; }
       const gi = e.target.closest('[data-goto-item]');
       if (gi) { $('#btnClearFilters').click(); showView('inventory'); flashRow(gi.dataset.gotoItem); }
+      const sh = e.target.closest('[data-sheet]');
+      if (sh) openItemSheet(sh.dataset.sheet);
     });
 
     ['#btnExportJson', '#btnExportJson2'].forEach((s) => ($(s).onclick = exportJSON));
     ['#btnImportJson', '#btnImportJson2', '#btnImportOther', '#btnImportOther2'].forEach((s) => ($(s).onclick = () => $('#importJsonInput').click()));
     $('#importJsonInput').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importJSON(f); };
     ['#btnExportXlsx', '#btnExportXlsx2'].forEach((s) => ($(s).onclick = exportExcel));
+    $('#btnPdfMonth').onclick = async () => {
+      const to = $('#repTo').value || U.todayISO();
+      const v = await U.prompt('Monthly profit summary (PDF)', 'Which month? (YYYY-MM)', { type: 'month', value: to.slice(0, 7), placeholder: 'YYYY-MM', okLabel: 'Create PDF' });
+      if (!v) return;
+      if (!/^\d{4}-\d{2}$/.test(v.trim())) { U.toast('Type the month as YYYY-MM, e.g. 2026-11', 'err'); return; }
+      Print.monthly(printCtx(), v.trim());
+    };
+    $('#btnPdfTax').onclick = async () => {
+      const y0 = +($('#repTo').value || U.todayISO()).slice(0, 4);
+      const v = await U.prompt('Tax-year summary (PDF)', 'Which year?', { value: String(y0), placeholder: 'YYYY', okLabel: 'Create PDF' });
+      if (!v) return;
+      if (!/^\d{4}$/.test(v.trim())) { U.toast('Type a 4-digit year', 'err'); return; }
+      Print.taxYear(printCtx(), +v.trim());
+    };
     $('#btnLock').onclick = () => lockApp('Locked.');
 
     $('#lockForm').addEventListener('submit', onLockSubmit);

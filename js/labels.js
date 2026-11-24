@@ -31,8 +31,13 @@
     if (!items.length) { U.toast('Select items to print labels for.'); return; }
     const fmt = ctx.format || 'avery5160';
     const money = ctx.money || ((n) => (n == null ? '' : '$' + (+n).toFixed(2)));
+    const thermal = fmt.startsWith('thermal');
+    const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+    const co = esc(ctx.company || '');
+    const big = fmt === 'thermal4x6' || fmt === 'avery5163';
+    const brandRow = co ? `<div class="brand">${big ? `<img src="${ctx.logo || base + 'icons/brand-mark.png'}" alt="">` : ''}<span>${co}</span></div>` : '';
     const label = (it) => `<div class="lbl"><div class="qr">${Labels.qrSvg(Labels.itemUrl(it))}</div><div class="tx">
-        <div class="sku">${it.sku ? 'SKU ' + esc(it.sku) : ''}${it.location ? `<span class="loc">${esc(it.location)}</span>` : ''}</div>
+        ${brandRow}<div class="sku">${it.sku ? 'SKU ' + esc(it.sku) : ''}${it.location ? `<span class="loc">${esc(it.location)}</span>` : ''}</div>
         <div class="nm">${esc(it.name)}</div>
         <div class="meta">${[it.brand, it.size ? 'Size ' + it.size : ''].filter(Boolean).map(esc).join(' · ')}</div>
         ${it.sellingPrice != null ? `<div class="pr">${esc(money(it.sellingPrice))}</div>` : ''}</div></div>`;
@@ -53,16 +58,23 @@
       .loc { font-size: 0.8em; font-weight: 700; border: 1px solid #000; border-radius: 3px; padding: 0 3px; }
       .nm { font-weight: 600; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; margin-top: 1px; }
       .meta { color: #333; margin-top: 1px; } .pr { font-weight: 800; margin-top: 1px; }
+      @font-face { font-family: "Pacifico"; src: url(${base}fonts/pacifico.woff2) format("woff2"); }
+      .brand { font-family: "Pacifico", cursive; color: ${thermal ? '#000' : '#164e47'}; font-size: ${big ? '13pt' : '7.5pt'}; line-height: 1.25; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; }
+      .brand img { height: ${fmt === 'thermal4x6' ? '0.9in' : '0.42in'}; width: auto; ${thermal ? 'filter: grayscale(1);' : ''} }
+      ${fmt === 'thermal4x6' ? '.brand { flex-direction: column; font-size: 20pt; }' : ''}
+      ${thermal ? '' : '.lbl { border-left: 3px solid #e7b84f; } .pr { color: #164e47; }'}
       ${css}</style></head><body><div class="sheet">${items.map(label).join('')}</div></body></html>`;
     const frame = document.createElement('iframe');
     frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
     document.body.appendChild(frame);
     const doc = frame.contentWindow.document;
     doc.open(); doc.write(html); doc.close();
-    setTimeout(() => {
+    const ready = Promise.race([Promise.all([...[...doc.images].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))), doc.fonts ? doc.fonts.ready : 0]), new Promise((r) => setTimeout(r, 2500))]);
+    Labels.lastHtml = html;
+    ready.then(() => setTimeout(() => {
       try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (e) { U.toast('Printing failed: ' + e.message, 'err'); }
       setTimeout(() => frame.remove(), 60000);
-    }, 350);
+    }, 150));
     U.toast(`${items.length} label(s) sent to the printer — choose “Actual size” / 100% scale`, 'ok');
   };
 

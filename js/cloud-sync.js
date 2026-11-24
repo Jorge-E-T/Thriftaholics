@@ -11,8 +11,10 @@
 (function (global) {
   'use strict';
   const KINDS = ['items', 'expenses', 'mileage'];
-  const COLLS = ['items', 'expenses', 'mileage', 'photos', 'app'];
-  const LOCAL_ONLY = ['sync', 'cloud', 'viewMode', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil', 'updatedAt'];
+  const COLLS = ['items', 'expenses', 'mileage', 'photos', 'app', 'activity'];
+  const ACT_DAYS = 365, ACT_MAX = 3000;
+  let actOff = false, actWarned = false; // activity history needs the 'activity' collection in the Firestore rules
+  const LOCAL_ONLY = ['sync', 'cloud', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil', 'updatedAt'];
   const MAX_DOC = 900000;        // Firestore's limit is 1 MiB per document
   const LIB = ['lib/firebase/firebase-app-compat.js', 'lib/firebase/firebase-auth-compat.js', 'lib/firebase/firebase-firestore-compat.js'];
 
@@ -189,9 +191,40 @@
           if (changes.length || !key) schedule(150);
         }
         render();
-      }, (err) => { lastErr = friendly(err); console.error('cloud listen', c, err); render(); }));
+      }, (err) => {
+        if (c === 'activity' && err && /permission/i.test(err.code || err.message || '')) { activityBlocked(); ready.add(c); if (ready.size === COLLS.length) schedule(150); render(); return; }
+        lastErr = friendly(err); console.error('cloud listen', c, err); render();
+      }));
     });
     render();
+  }
+  function activityBlocked() {
+    actOff = true;
+    if (!actWarned) { actWarned = true; console.warn('cloud sync: activity history is not allowed by the Firestore rules yet'); global.U && U.toast('Activity history stays on this device until the updated Firestore rules are published (see the sync guide). Everything else syncs normally.', '', { ms: 9000 }); }
+  }
+  async function sendActivity(ops) {
+    if (!ops.length || actOff) return;
+    ops.forEach((o) => { if (o.data) mirror.activity[o.id] = o.data; else delete mirror.activity[o.id]; });
+    try { await adapter.commit(ops); }
+    catch (e) { ops.forEach((o) => { if (o.data) delete mirror.activity[o.id]; }); if (/permission/i.test(e.code || e.message || '')) activityBlocked(); else console.error('cloud activity write', e); }
+  }
+  async function activityOps(snap, apply) {
+    const out = [];
+    if (actOff) return out;
+    const now = Date.now(), cut = now - ACT_DAYS * 864e5;
+    const local = snap.activity || [];
+    const floor = local.length >= ACT_MAX ? Math.max(cut, local[0].t) : cut;
+    const have = new Set(local.map((e) => e.id));
+    const cloud = mirror.activity || {};
+    let pruned = 0;
+    for (const [id, C] of Object.entries(cloud)) {
+      if (!C) continue;
+      if ((C.u || 0) < cut) { if (pruned++ < 200) out.push({ coll: 'activity', id, data: null }); continue; }
+      if (have.has(id) || (C.u || 0) < floor || (C.k && C.k !== keyId)) continue;
+      try { apply.activity.push(await dec('activity', id, C)); } catch (_) { /* not readable with this key */ }
+    }
+    for (const e of local) if (e && e.id && !cloud[e.id] && e.t > cut) out.push({ coll: 'activity', id: e.id, data: await encDoc(e, e.t) });
+    return out;
   }
   function stop() {
     unsubs.forEach((u) => { try { u(); } catch (_) { /* ignore */ } });
@@ -391,11 +424,15 @@
       await blob('app', 'recovery', snap.questionAnswers, (q) => JSON.stringify(q), seen.blobs,
         async (v) => { if (v) apply.recovery = v; },
         async (q) => q);
+      /* activity history: immutable entries, merged both ways */
+      apply.activity = [];
+      const actOpsList = await activityOps(snap, apply);
       /* apply cloud → this device, then this device → cloud */
-      const touched = KINDS.some((k) => apply[k].put.length || apply[k].del.length || apply[k].untomb.length) || apply.photos.put.length || apply.photos.del.length || apply.settings || 'logo' in apply || apply.recovery;
+      const touched = KINDS.some((k) => apply[k].put.length || apply[k].del.length || apply[k].untomb.length) || apply.photos.put.length || apply.photos.del.length || apply.settings || 'logo' in apply || apply.recovery || apply.activity.length;
       if (touched) await api.applyCloud(apply, password);
       seen.linked = true; saveSeen(seen);
       if (ops.length) await send(ops);
+      if (actOpsList.length) await sendActivity(actOpsList);
       if (!ops.length && !touched) lastSync = lastSync || new Date();
     } catch (e) {
       console.error('cloud sync', e); lastErr = friendly(e);
@@ -434,6 +471,7 @@
     now() { lastErr = null; if (keyProblem) { keyProblem = null; key = null; } if (running) schedule(0); else start(); render(); return Promise.resolve(); },
     status: () => statusInfo(),
     signedIn: () => !!user,
+    email: () => (user && user.email) || '',
     async signOut() { try { if (adapter) await adapter.signOut(); } catch (_) { /* ignore */ } user = null; stop(); },
     /** After a password change/reset on this device: re-lock the whole cloud copy with the new password. */
     async passwordChanged(oldPw, newPw) {
@@ -462,6 +500,13 @@
       ops.push({ coll: 'app', id: 'crypto', data: { v: 1, salt: k.salt, it: k.iterations, k: keyId, check: { iv: check.iv, ct: check.data }, u: Date.now() } });
       saveSeen(seen);
       await send(ops);
+      if (!actOff) {
+        const aops = [];
+        const mine = new Set((snap.activity || []).map((e) => e.id));
+        for (const e of snap.activity || []) aops.push({ coll: 'activity', id: e.id, data: await encDoc(e, e.t) });
+        for (const id of Object.keys(mirror.activity || {})) if (!mine.has(id)) aops.push({ coll: 'activity', id, data: null });
+        await sendActivity(aops);
+      }
     },
     /** Erase everything in the cloud (Settings → Erase all data). */
     async deleteRemote() {
@@ -471,6 +516,7 @@
       ['items', 'expenses', 'mileage', 'photos'].forEach((c) => Object.keys(mirror[c]).forEach((id) => ops.push({ coll: c, id, data: null })));
       ops.push({ coll: 'app', id: 'reset', data: { u: Date.now() } });
       await adapter.commit(ops);
+      if (!actOff) { try { await adapter.commit(Object.keys(mirror.activity || {}).map((id) => ({ coll: 'activity', id, data: null }))); } catch (_) { /* rules without activity */ } }
       try { localStorage.removeItem(seenKey()); } catch (_) { /* ignore */ }
     },
     forgetDevice() { try { Object.keys(localStorage).filter((k) => k.startsWith('thrift-cloud:')).forEach((k) => localStorage.removeItem(k)); } catch (_) { /* ignore */ } }

@@ -155,14 +155,14 @@
     const el = document.createElement('div');
     el.className = 'toast ' + kind;
     el.innerHTML = `<span>${U.esc(msg)}</span>`;
-    if (action) {
+    if (action && action.label) {
       const b = document.createElement('button');
       b.textContent = action.label;
       b.onclick = () => { action.fn(); el.remove(); };
       el.appendChild(b);
     }
     box.appendChild(el);
-    setTimeout(() => el.remove(), action ? 7000 : 3500);
+    setTimeout(() => el.remove(), (action && action.ms) || (action ? 7000 : 3500));
   };
 
   /* ---- modal ---- */
