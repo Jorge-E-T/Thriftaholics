@@ -119,22 +119,46 @@
       ]
     },
     {
-      id: 'listings', icon: '🔗', color: '#8a5a9e', title: 'Listing on several sites',
-      lead: 'Cross-list safely: every listing has a link and a status, and the app reminds you to delist when something sells.',
+      id: 'listings', icon: '🔗', color: '#8a5a9e', title: 'Cross-listing on several sites',
+      lead: 'One item, many marketplaces. The Cross-list helper gets each listing ready to paste, tracks where everything is live, and reminds you to delist the moment it sells.',
       blocks: [
-        { t: 'steps', h: 'Add listings to an item', items: [
-          ['Open the “Listed on” cell', 'Click the cell, or use the full editor.'],
-          ['Add a site', `Click <b>+ Add another site</b> or a <b>Quick add</b> button. Paste the listing link — the site name is detected from it.`],
-          ['Each listing gets a status', `${chip('Active', '#2f8a57')} ${chip('Delisted', '#6b7672')} ${chip('Sold', '#c9952e')} ${chip('Expired', '#c2413b')}`],
-          ['Open a listing', 'Chips show in the table with an ↗ button that opens the listing in a new tab.']
+        { t: 'xlflow' },
+        { t: 'note', kind: 'tip', html: 'Why cross-list? The same item is seen by different buyers on Poshmark, Depop, eBay and Mercari — more eyes usually means a faster sale. The catch is remembering to take it down everywhere else when it sells. The app handles that part for you.' },
+        { t: 'steps', h: 'Before your first cross-list (once)', items: [
+          ['Hide the sites you don’t use', `Platforms tab → <b>Hide</b> on each one you never sell on. The helper only shows the platforms you keep. ${go('platforms', '#platGrid')}`],
+          ['Check each site’s details', 'Platforms → <b>Edit</b> → <i>Cross-listing helper</i>: the site’s “Sell an item” page, its title limit, description limit, how many hashtags to add, and whether it has a title field at all (Depop doesn’t). The common sites come filled in.'],
+          ['Write your listing templates', `Settings → <b>Listing templates</b>. The title and description you write there, with placeholders like {brand} {size} {condition} {measurements}, become the starting text for every site. ${go('settings', '#tplTitle')}`],
+          ['Fill in the item', 'Brand, size, color, condition and measurements make better listings — and each becomes a one-tap copy button in the helper.']
         ] },
-        { t: 'note', kind: 'warn', html: 'When an item sells, the listing on that site becomes <b>Sold</b> and a <b>delist checklist</b> opens with links to every other site. A red “Delist” tag stays on the item — and it appears in the Action Center — until you’ve taken it down everywhere.' },
-        { t: 'grid', h: 'Write listings faster', items: [
-          ['📝', 'Templates', 'Settings → <b>Listing templates</b>. Placeholders like {name} {brand} {size} {color} {condition} {measurements} {price} fill in automatically; empty lines are skipped.'],
-          ['📋', 'Copy-ready text', 'Each item has a ready title and description to copy and paste into any marketplace.'],
-          ['🏷️', 'Condition choices', 'Edit the list of conditions under Listing templates.'],
-          ['🔍', 'Filter by site', 'The platform filter and search include listings, not just the site it sold on.']
-        ] }
+        { t: 'steps', h: 'Cross-list an item', items: [
+          ['Open the helper', `Any of these: the <b>share</b> icon on an inventory row, <b>Cross-list</b> in the item’s details, or tick several items and choose <b>Cross-list…</b> on the bottom bar to work through them one after another (<b>Next item →</b>). ${go('inventory', '#invWrap')}`],
+          ['Pick a site', 'The chips across the top show every platform you use — ✓ means it’s already live there. The helper starts on the first site you haven’t listed on yet.'],
+          ['Save the photo', '<b>Save photo</b> downloads it; on a phone, <b>Share / save to Photos</b> puts it in your camera roll so the marketplace app can pick it up.'],
+          ['Open the site', '<b>Open … “sell” page</b> starts a new listing in another tab. Keep the Thriftaholics tab open to copy from.'],
+          ['Copy, paste, repeat', 'Tap <b>Copy</b> next to the title, description and price, then paste each into the site. Brand, size, color, condition, measurements and SKU are copy buttons too, and <b>Copy everything at once</b> grabs it all. Edit any text first — changes apply to this listing only.'],
+          ['Publish, then come back', 'Publish the listing on the site, copy its link, paste it into step 4 and tap <b>✓ Mark listed</b>. The item now shows that site’s chip, and the helper jumps to the next site you haven’t done.']
+        ] },
+        { t: 'grid', h: 'Made for each marketplace', items: [
+          ['✂️', 'Title limits', 'Titles are trimmed at a word boundary to fit — for example 80 characters on eBay and 140 on Etsy. A counter turns red if you go over while editing.'],
+          ['🏷️', 'Depop style', 'Depop has no title field, so the title goes at the top of the description, which is capped at 1,000 characters and ends with up to 5 hashtags built from the brand, category, color and name.'],
+          ['💲', 'Fee-aware price', 'Each site shows what you’d keep after its fees. <b>Use $X to keep $Y</b> suggests the price that pays you your full list price there.'],
+          ['🔗', 'Link check', 'Paste a Poshmark link while eBay is selected and the helper warns you, so a listing is never filed under the wrong site.'],
+          ['📈', 'Progress bar', '“Listed on 3 of 5 sites” — see at a glance where each item still needs to go.'],
+          ['✏️', 'Your rules', 'Every limit, hashtag count and sell-page link is editable per platform, so the helper keeps working when a site changes.']
+        ] },
+        { t: 'steps', h: 'When it sells — delisting', items: [
+          ['Record the sale as usual', 'Mark it sold and choose the site it sold on. That site’s listing becomes <b>Sold</b>.'],
+          ['The delist checklist opens', 'It lists every other site where the item is still active, each with a link straight to the listing.'],
+          ['Take each one down', 'Open each link, end or delete the listing on that site, then tick it in the checklist.'],
+          ['Nothing slips through', 'Until every listing is down, the item keeps a red <b>Delist</b> tag and stays in the Action Center under <b>Delist needed</b>.']
+        ] },
+        { t: 'grid', h: 'Listing statuses', items: [
+          ['🟢', 'Active', 'Live on that site.'],
+          ['⚪', 'Delisted', 'You took it down.'],
+          ['🟡', 'Sold', 'It sold on that site.'],
+          ['🔴', 'Expired', 'The site ended it (for example an eBay listing that ran out).']
+        ] },
+        { t: 'note', kind: 'warn', html: 'The helper prepares everything, but <b>you</b> press Publish on each site. Marketplaces like Poshmark, Depop, Mercari and Vinted don’t let outside apps post for you, and many forbid bots — copy-and-paste keeps your accounts safe. Always double-check the category, size and shipping options each site asks for.' }
       ]
     },
     {
@@ -184,6 +208,14 @@
           ['📊', 'Results', 'What you keep on a $40 sale, plus real totals: items listed, sold, gross sales and average fee.'],
           ['✏️', 'Yours to change', 'Edit, hide, delete or add platforms. Renaming one updates every item that uses it.']
         ] },
+        { t: 'steps', h: 'When a marketplace changes its fees', items: [
+          ['Watch for the gold banner', 'Once a day, opening the Platforms tab quietly checks the shared fee list. If a site you use has new fees, a gold <b>Fee updates available</b> banner appears.'],
+          ['Review the changes', `Click <b>Review &amp; update</b> — or <b>↻ Check for fee updates</b> any time. You see each change, old → new, with an explanation. ${go('platforms', '#btnFeeCheck')}`],
+          ['Your edits are respected', 'Platforms you changed yourself are marked <b>you edited this one</b> and left unticked, so your own numbers are never overwritten by surprise.'],
+          ['Update once, everyone gets it', 'Tick and update. With cloud sync on, the new fees reach every phone and computer within seconds, and the change appears in the activity history.'],
+          ['Look it up yourself', 'Every platform card has <b>Look up current fees ↗</b> to check the marketplace’s published rates.']
+        ] },
+        { t: 'note', kind: 'good', html: 'Where do new fees come from? The app reads <b>platform-fees.json</b> from your own website (the same GitHub folder as the app). When a marketplace announces new fees, that one file is updated and uploaded — every device then offers the update. Marketplaces don’t publish their fees in a form apps can read automatically, so the file is the dependable way to keep everyone in step.' },
         { t: 'note', kind: 'tip', html: `The <b>fee calculator</b> at the top compares every platform for any price, cost and shipping — perfect for deciding where to list something. ${go('platforms', '#pcPrice', 'Try the calculator')}` }
       ]
     },
@@ -332,7 +364,10 @@
           ['My data isn’t on my other device.', 'Each browser keeps its own copy. Turn on cloud sync on both devices with the same app password, or make a Backup here and Restore it there.'],
           ['The sync pill says something other than “Up to date”.', '<i>Offline</i>: no internet — changes wait. <i>Different app password in the cloud</i>: click Sync now and enter the password the cloud uses. Errors: sign out and back in, and check the e-mail is listed in the Firestore rules.'],
           ['Profit looks wrong on a sale.', 'Open the item and check <b>purchase price</b>, <b>total after fees</b> (what the site actually paid you) and <b>shipping cost</b> (only what you paid).'],
-          ['Fee estimates are off.', 'Platforms tab → edit that platform’s fee settings. Sites change fees from time to time.'],
+          ['Fee estimates are off.', 'Platforms tab → <b>↻ Check for fee updates</b>. If the shared list hasn’t caught up yet, click <b>Look up current fees ↗</b> on that platform and edit its numbers.'],
+          ['Can the app post listings to Poshmark, Depop or Mercari by itself?', 'No — those marketplaces don’t allow outside apps to post for you. The Cross-list helper gets everything ready so each site takes about a minute: open, paste, publish, paste the link back.'],
+          ['The “sell” page link opens the wrong page.', 'Sites move pages around. Open the site, go to its “sell an item” page yourself, copy that address, and paste it into Platforms → Edit → Cross-listing helper → “Sell an item” page.'],
+          ['A title is cut off.', 'It was trimmed to that site’s title limit. Edit it in the helper, or change the limit in Platforms → Edit if the site allows more.'],
           ['I imported the wrong file.', 'Settings → Safety snapshots → restore the snapshot from just before the import.'],
           ['Labels print the wrong size.', 'In the print window set scale to <b>Actual size / 100%</b>, margins to <b>Default</b>, and check the label format in Settings.'],
           ['Where are the PDFs saved?', 'Wherever you choose in the print window after picking <b>Save as PDF</b> (usually Downloads).'],
@@ -382,6 +417,11 @@
         <li class="act"><span class="av" style="--av:#c9952e">A</span><div class="act-t"><b>Andy</b> marked “Pleated Mini Skirt” sold for $28.00<span class="act-when">2 minutes ago</span></div><span class="g-btn sm">Revert</span></li>
         <li class="act"><span class="av" style="--av:#2a7a70">J</span><div class="act-t"><b>Jorge</b> changed the price of “Blue Tank Top” $18.00 → $14.00<span class="act-when">1 hour ago</span></div><span class="g-btn sm">Revert</span></li>
         <li class="act"><span class="av" style="--av:#c9952e">A</span><div class="act-t"><b>Andy</b> added “Y2K Denim Jacket”<span class="act-when">yesterday</span></div><span class="g-btn sm">Revert</span></li></ul>`,
+    xlflow: () => `<div class="g-xl" aria-hidden="true">
+        <div class="gx-item"><span class="gx-ph"></span><b>Y2K Denim Jacket</b><em>$42</em></div>
+        <div class="gx-arrows"><i></i><i></i><i></i><i></i></div>
+        <div class="gx-sites">${[['Poshmark', '#8c2f39', 1], ['Depop', '#d1492e', 1], ['eBay', '#3a6ea5', 1], ['Mercari', '#7b4fa0', 0]].map(([n, c, ok]) => `<span style="--c:${c}">${n}${ok ? ' ✓' : ''}</span>`).join('')}</div>
+        <div class="gx-cap">1 item · copy-ready for each site · <b>3 of 4 live</b></div></div>`,
     layers: () => `<div class="g-layers" aria-hidden="true">${[['🔐', 'Encryption', 'locks everything'], ['☁️', 'Cloud sync', 'a live copy'], ['⬇', 'Backups', 'files you keep'], ['📸', 'Snapshots', 'automatic restore points'], ['↩️', 'Undo & revert', 'oops-proof']].map(([i, t, s], n) => `<div style="--n:${n}"><span>${i}</span><b>${t}</b><em>${s}</em></div>`).join('')}</div>`,
     keys: () => `<div class="g-keys">${[[k('Ctrl') + '/' + k('⌘') + ' + ' + k('Z'), 'Undo'], [k('Tab'), 'Next cell'], [k('Enter'), 'Save the cell'], [k('Esc'), 'Cancel editing / close a window'], ['<b>Shift</b> + click header', 'Sort by a second column'], ['Drag a photo onto a row', 'Add a photo']].map(([a, d]) => `<div><span>${a}</span><em>${d}</em></div>`).join('')}</div>`
   };
@@ -442,6 +482,7 @@
       ['Add your logo', 'It goes on every printout', c.logo, 'dashboard', '#logoSlot'],
       ['Bring in your inventory', 'Import or add your first item', c.items > 0, 'inventory', '#btnImportXlsx'],
       ['Check your platforms', 'Hide the sites you don’t use', c.platformsTouched, 'platforms', '#platGrid'],
+      ['Cross-list an item', 'Live on two or more sites', c.crossListed, 'inventory', '#invWrap'],
       ['Record a sale', 'Watch the celebration', c.sold > 0, 'inventory', ''],
       ['Make a backup', 'Keep a copy somewhere safe', c.backup, 'dashboard', '#btnExportJson'],
       ['Tell the app your name', 'For the activity history', c.name, 'settings', '#setYourName'],

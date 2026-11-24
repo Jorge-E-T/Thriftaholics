@@ -138,6 +138,7 @@
   }
   function describe(e) {
     const what = e.kind === 'items' ? '' : e.kind === 'expenses' ? 'expense ' : 'mileage ';
+    if (e.kind === 'platforms') return e.label;
     if (e.n) return `${e.label || 'changed'} — ${e.n} ${e.kind === 'items' ? 'items' : e.kind === 'expenses' ? 'expenses' : 'trips'}`;
     if (e.act === 'added') return `added ${what}“${e.title}”`;
     if (e.act === 'deleted') return `deleted ${what}“${e.title}”`;
@@ -624,7 +625,9 @@
       const url = U.normUrl(l.url || l.link || '');
       const platform = String(l.platform || l.name || '').trim().toLowerCase() || U.platformFromUrl(url);
       const status = ['active', 'delisted', 'sold', 'expired'].includes(l.status) ? l.status : 'active';
-      return { platform, url, status, statusDate: l.statusDate || '' };
+      const out = { platform, url, status, statusDate: l.statusDate || '' };
+      if (l.price !== undefined && l.price !== null && l.price !== '' && !isNaN(+l.price)) out.price = +l.price;
+      return out;
     }).filter((l) => { const k = l.platform + '|' + l.url; if ((!l.platform && !l.url) || seen.has(k)) return false; seen.add(k); return true; });
   }
   function normalizeTrip(raw) {
@@ -691,7 +694,8 @@
     del: '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>',
     open: '<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 9h16M8 13h5M8 16h8"/></svg>',
     camera: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
-    back: '<svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg>'
+    back: '<svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg>',
+    xlist: '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 10.8l7.4-3.6M8.3 13.2l7.4 3.6"/></svg>'
   };
   const statusBadge = (s) => { const k = (s || '').toLowerCase(); return `<span class="badge ${k === 'sold' ? 'b-sold' : k === 'available' ? 'b-available' : 'b-other'}">${esc(s || '—')}</span>`; };
 
@@ -770,6 +774,7 @@
       onOpen: (r) => openItemSheet(r),
       actions: [
         { icon: ICON.open, title: 'Item details', fn: (r) => openItemSheet(r) },
+        { icon: ICON.xlist, title: 'Cross-list to other sites', show: (r) => !Calc.isSold(r), fn: (r) => crossListDialog([r]) },
         { icon: ICON.sold, title: 'Mark as sold…', show: (r) => !Calc.isSold(r), fn: (r) => markSoldDialog([r]) },
         { icon: ICON.edit, title: 'Edit all fields', fn: (r) => itemDialog(r) },
         { icon: ICON.dup, title: 'Duplicate', fn: (r) => duplicateItems([r]) },
@@ -805,6 +810,7 @@
       if (a === 'duplicate') duplicateItems(sel);
       if (a === 'price') bulkPriceDialog(sel.filter((x) => !Calc.isSold(x)));
       if (a === 'labels') Labels.print(sel, labelCtx());
+      if (a === 'xlist') crossListDialog(sel.filter((x) => !Calc.isSold(x)));
       if (a === 'slips') Print.packingSlip(sel, printCtx());
       if (a === 'thanks') Print.thankYou(sel, printCtx());
       if (a === 'refreshed') { commit('items', sel.map((it) => ({ id: it.id, after: { ...U.clone(it), lastRelisted: U.todayISO() } })), { label: 'refreshed' }); renderAll(); U.toast(`${sel.length} marked refreshed`, 'ok'); }
@@ -1058,6 +1064,7 @@
         <div class="sh-actions">
           <button class="btn btn-primary btn-sm" data-sh="edit">${ICON.edit} Edit all fields</button>
           ${sold ? `<button class="btn btn-sm" data-sh="slip">Packing slip</button><button class="btn btn-sm" data-sh="thanks">Thank-you card</button>` : `<button class="btn btn-gold btn-sm" data-sh="sold">${ICON.sold} Mark sold</button>`}
+          ${sold ? '' : `<button class="btn btn-sm btn-xl" data-sh="xlist">${ICON.xlist} Cross-list</button>`}
           <button class="btn btn-sm" data-sh="label">QR label</button>
           <button class="btn btn-sm btn-ghost" data-sh="dup">${ICON.dup} Duplicate</button>
         </div>
@@ -1076,6 +1083,7 @@
     else if (go === 'sold') markSoldDialog([it]);
     else if (go === 'dup') duplicateItems([it]);
     else if (go === 'label') Labels.print([it], labelCtx());
+    else if (go === 'xlist') crossListDialog([it]);
     else if (go === 'slip' && typeof Print !== 'undefined') Print.packingSlip([it], printCtx());
     else if (go === 'thanks' && typeof Print !== 'undefined') Print.thankYou([it], printCtx());
     else if (go === 'photo') { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = async () => { if (inp.files[0]) { await setPhoto(it, inp.files[0]); openItemSheet(it.id); } }; inp.click(); }
@@ -1085,6 +1093,153 @@
     if (s < 60) return 'just now'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago';
     if (s < 86400 * 7) return Math.round(s / 86400) + ' d ago';
     return U.fmtDate(U.toISO(new Date(ms)));
+  }
+
+
+  /* =========================================================
+     Cross-listing helper — everything ready to paste into each site
+     ========================================================= */
+  async function copyText(t, what) {
+    try { await navigator.clipboard.writeText(t); }
+    catch (_) { const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (__) { /* ignore */ } ta.remove(); }
+    U.toast(`${what || 'Text'} copied — paste it on the site`, 'ok');
+  }
+  const STOP = new Set(['the', 'and', 'with', 'for', 'size', 'womens', 'mens', 'women', 'men', 'new', 'from', 'this', 'that', 'top']);
+  function hashtagsFor(it, n) {
+    if (!n) return '';
+    const words = [it.brand, ...String(it.category || '').split(/[\s/,&+-]+/), it.color, ...String(it.name || '').split(/[\s/,&+-]+/)].filter(Boolean)
+      .map((w) => String(w).toLowerCase().replace(/[^a-z0-9]/g, '')).filter((w) => w.length > 2 && !STOP.has(w) && !/^\d+$/.test(w));
+    return uniq(words).slice(0, n).map((w) => '#' + w).join(' ');
+  }
+  const cutTo = (t, max) => { t = String(t || '').trim(); if (!max || t.length <= max) return t; const c = t.slice(0, max + 1); const sp = c.lastIndexOf(' '); return (sp > max * 0.6 ? c.slice(0, sp) : t.slice(0, max)).trim(); };
+  /** the price on this platform that pays you the same as `target` */
+  function priceToKeep(p, target) {
+    let lo = 0, hi = Math.max(10, target * 4);
+    for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (Calc.platformEstimate(p, m).payout >= target) hi = m; else lo = m; }
+    return Math.ceil(hi);
+  }
+  function xlDraft(it, p) {
+    const tpl = S().templates || {};
+    const baseTitle = fillTemplate(tpl.title || '{name}', it) || it.name || '';
+    let desc = fillTemplate(tpl.description || '', it) || it.name || '';
+    if (p.noTitle && !desc.toLowerCase().startsWith(baseTitle.toLowerCase())) desc = `${baseTitle}\n\n${desc}`.trim();
+    const tags = hashtagsFor(it, +p.hashtags || 0);
+    if (tags) desc = `${desc}\n\n${tags}`;
+    if (p.descMax && desc.length > p.descMax) desc = desc.slice(0, p.descMax);
+    return { title: cutTo(baseTitle, p.titleMax), fullTitle: baseTitle, desc, price: it.sellingPrice ?? '' };
+  }
+  const xlTargets = () => profiles().filter((p) => p.active !== false && !/^in person$/i.test(p.name));
+  async function crossListDialog(items) {
+    items = (items || []).filter(Boolean);
+    if (!items.length) { U.toast('Select unsold items to cross-list'); return; }
+    const targets = xlTargets();
+    if (!targets.length) { U.toast('Add your platforms on the Platforms tab first', 'err'); return; }
+    let idx = 0;
+    const root = document.createElement('div');
+    root.className = 'xl';
+    let cur = null, pid = null, draft = null, photo = null;
+    const listingFor = (it, p) => (it.listings || []).find((l) => (l.platform || '').toLowerCase() === p.name.toLowerCase());
+    const pick = (it) => { const firstOpen = targets.find((p) => { const l = listingFor(it, p); return !l || l.status !== 'active'; }); return (firstOpen || targets[0]).id; };
+    const load = async () => {
+      cur = findItem(items[idx].id) || items[idx];
+      photo = null;
+      try { const ph = await Store.getPhoto(cur.id); photo = ph && (ph.full || ph.thumb); } catch (_) { /* none */ }
+      if (!photo && state.thumbs[cur.id]) photo = state.thumbs[cur.id].thumb;
+      pid = pick(cur); draft = null; draw();
+    };
+    const draw = () => {
+      const p = targets.find((x) => x.id === pid) || targets[0];
+      if (!draft || draft.pid !== p.id) draft = { pid: p.id, ...xlDraft(cur, p) };
+      const done = targets.filter((x) => (listingFor(cur, x) || {}).status === 'active').length;
+      const L = listingFor(cur, p);
+      const est = Calc.platformEstimate(p, U.num(draft.price) || 0);
+      const keep = cur.sellingPrice != null ? priceToKeep(p, cur.sellingPrice) : null;
+      const sell = p.sellUrl || p.url;
+      const tLen = draft.title.length, dLen = draft.desc.length;
+      const facts = [['Brand', cur.brand], ['Size', cur.size], ['Color', cur.color], ['Condition', cur.condition], ['Category', cur.category], ['Measurements', cur.measurements], ['Weight', cur.weight], ['SKU', cur.sku]].filter(([, v]) => v);
+      root.innerHTML = `
+        <div class="xl-top">
+          <div class="xl-ph">${photo ? `<img src="${photo}" alt="">` : '<span>No photo</span>'}</div>
+          <div class="xl-it"><b>${esc(cur.name)}</b><span class="muted small">${cur.sku ? 'SKU ' + esc(cur.sku) + ' · ' : ''}${esc(U.money(cur.sellingPrice))}${items.length > 1 ? ` · item ${idx + 1} of ${items.length}` : ''}</span>
+            <div class="xl-prog"><i style="width:${(done / targets.length) * 100}%"></i></div><span class="small">Listed on <b>${done}</b> of ${targets.length} sites</span></div>
+        </div>
+        <div class="xl-plats">${targets.map((x) => { const l = listingFor(cur, x); const st = l ? l.status : ''; return `<button type="button" class="xl-pl ${x.id === p.id ? 'on' : ''} ${st === 'active' ? 'done' : ''}" data-xp="${esc(x.id)}" style="--pc:${esc(x.color)}"><span class="plat-dot"></span>${esc(x.name)}${st === 'active' ? ' <i>✓</i>' : st ? ` <em>${esc(st)}</em>` : ''}</button>`; }).join('')}</div>
+        ${L && L.status === 'active' ? `<div class="xl-already">✓ Already listed on ${esc(p.name)}${L.url ? ` — <a href="${esc(L.url)}" target="_blank" rel="noopener noreferrer">open the listing ↗</a>` : ''}. You can still copy the details or update the link below.</div>` : ''}
+        <ol class="xl-steps">
+          <li><div class="xl-sh"><b>Save the photo</b><span class="muted small">Upload it on ${esc(p.name)}${/depop|poshmark/i.test(p.name) ? ' (square photos look best there)' : ''}.</span></div>
+            <div class="xl-row">${photo ? `<button type="button" class="btn btn-sm" data-xa="dl">⬇ Save photo</button>${navigator.canShare ? '<button type="button" class="btn btn-sm" data-xa="share">Share / save to Photos</button>' : ''}` : '<span class="muted small">No photo yet — add one from the item’s details, or use your phone’s photos directly.</span>'}</div></li>
+          <li><div class="xl-sh"><b>Open ${esc(p.name)}</b><span class="muted small">Starts a new listing in another tab — keep this window open.</span></div>
+            <div class="xl-row">${sell ? `<a class="btn btn-primary btn-sm" href="${esc(U.normUrl(sell))}" target="_blank" rel="noopener noreferrer" data-xa="open">Open ${esc(p.name)} “sell” page ↗</a>` : `<span class="muted small">No link saved for ${esc(p.name)} — add its “Sell an item” page in Platforms → Edit.</span>`}</div></li>
+          <li><div class="xl-sh"><b>Copy &amp; paste the details</b><span class="muted small">Edit here first if you like — changes are just for this listing.</span></div>
+            ${p.noTitle ? `<p class="xl-note">${esc(p.name)} has no title field, so the title is at the top of the description.</p>` : `
+            <div class="xl-field"><div class="xl-lab"><span>Title</span><span class="xl-cnt ${p.titleMax && tLen > p.titleMax ? 'over' : ''}">${tLen}${p.titleMax ? ' / ' + p.titleMax : ''}</span></div>
+              <div class="xl-in"><input data-xf="title" value="${esc(draft.title)}"><button type="button" class="btn btn-sm" data-xc="title">Copy</button></div>
+              ${p.titleMax && draft.fullTitle.length > p.titleMax ? `<span class="muted small">Shortened to fit ${esc(p.name)}’s ${p.titleMax}-character limit.</span>` : ''}</div>`}
+            <div class="xl-field"><div class="xl-lab"><span>Description${+p.hashtags ? ` (with ${+p.hashtags} hashtags)` : ''}</span><span class="xl-cnt ${p.descMax && dLen > p.descMax ? 'over' : ''}">${dLen}${p.descMax ? ' / ' + p.descMax : ''}</span></div>
+              <div class="xl-in"><textarea data-xf="desc" rows="6">${esc(draft.desc)}</textarea><button type="button" class="btn btn-sm" data-xc="desc">Copy</button></div></div>
+            <div class="xl-field"><div class="xl-lab"><span>Price on ${esc(p.name)}</span></div>
+              <div class="xl-in xl-price"><input data-xf="price" inputmode="decimal" value="${esc(draft.price)}"><button type="button" class="btn btn-sm" data-xc="price">Copy</button></div>
+              <span class="small">You’d keep about <b>${U.money(est.payout)}</b> here (fees ${U.money(est.fees)}).${keep && keep !== +draft.price ? ` <button type="button" class="linklike" data-xa="keep" data-v="${keep}">Use ${U.money0(keep)} to keep ${U.money(cur.sellingPrice)} after fees</button>` : ''}</span></div>
+            ${facts.length ? `<div class="xl-facts">${facts.map(([k, v]) => `<button type="button" class="xl-fact" data-xcopy="${esc(v)}" data-xname="${esc(k)}" title="Copy ${esc(k)}"><span>${esc(k)}</span>${esc(v)}</button>`).join('')}</div>` : ''}
+            <div class="xl-row"><button type="button" class="btn btn-sm btn-ghost" data-xa="all">Copy everything at once</button></div></li>
+          <li><div class="xl-sh"><b>Publish it on ${esc(p.name)}, then paste the listing link here</b><span class="muted small">That marks the item as listed there, so the delist checklist can find it when it sells elsewhere.</span></div>
+            <div class="xl-in"><input data-xf="url" placeholder="Paste the ${esc(p.name)} listing link (optional)" value="${esc(L && L.url ? L.url : '')}"><button type="button" class="btn btn-gold btn-sm" data-xa="mark">✓ Mark listed on ${esc(p.name)}</button></div>
+            <span class="xl-warn small" data-xwarn></span></li>
+        </ol>`;
+    };
+    const markListed = () => {
+      const p = targets.find((x) => x.id === pid);
+      const url = root.querySelector('[data-xf="url"]').value.trim();
+      const from = url ? U.platformFromUrl(url) : '';
+      if (from && profileFor(from) && from.toLowerCase() !== p.name.toLowerCase()) {
+        root.querySelector('[data-xwarn]').textContent = `That link looks like ${platformLabel(from)}, not ${p.name}. Check it, or pick ${platformLabel(from)} above.`;
+        return;
+      }
+      const it = U.clone(findItem(cur.id));
+      const price = U.num(draft.price);
+      it.listings = (it.listings || []).map((l) => ({ ...l }));
+      let l = it.listings.find((x) => (x.platform || '').toLowerCase() === p.name.toLowerCase());
+      if (!l) { l = { platform: p.name.toLowerCase(), url: '', status: 'active', statusDate: '' }; it.listings.push(l); }
+      l.status = 'active'; l.statusDate = U.todayISO(); if (url) l.url = U.normUrl(url);
+      if (price !== null && price !== it.sellingPrice) l.price = price; else delete l.price;
+      if (!it.datePosted) it.datePosted = U.todayISO();
+      commit('items', [{ id: it.id, after: it }], { label: 'cross-listed on ' + p.name });
+      cur = findItem(it.id);
+      renderView(currentView());
+      U.toast(`Marked as listed on ${p.name}`, 'ok');
+      const next = targets.find((x) => { const ll = listingFor(cur, x); return !ll || ll.status !== 'active'; });
+      if (next) { pid = next.id; draft = null; }
+      draw();
+      if (!next) U.toast('Listed everywhere! 🎉', 'ok');
+    };
+    root.addEventListener('input', (e) => {
+      const f = e.target.closest('[data-xf]'); if (!f || f.dataset.xf === 'url') return;
+      draft[f.dataset.xf] = f.value;
+      if (f.dataset.xf === 'price') { const pos = f.selectionStart; draw(); const n = root.querySelector('[data-xf="price"]'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) { /* ignore */ } return; }
+      const cnt = f.closest('.xl-field').querySelector('.xl-cnt'); const p = targets.find((x) => x.id === pid); const max = f.dataset.xf === 'title' ? p.titleMax : p.descMax;
+      if (cnt) { cnt.textContent = f.value.length + (max ? ' / ' + max : ''); cnt.classList.toggle('over', !!max && f.value.length > max); }
+    });
+    root.addEventListener('click', async (e) => {
+      const pl = e.target.closest('[data-xp]'); if (pl) { pid = pl.dataset.xp; draft = null; draw(); return; }
+      const c = e.target.closest('[data-xc]'); if (c) { const k = c.dataset.xc; copyText(String(draft[k] ?? ''), { title: 'Title', desc: 'Description', price: 'Price' }[k]); return; }
+      const fc = e.target.closest('[data-xcopy]'); if (fc) { copyText(fc.dataset.xcopy, fc.dataset.xname); return; }
+      const a = e.target.closest('[data-xa]'); if (!a) return;
+      const p = targets.find((x) => x.id === pid);
+      const fname = `${U.slug(cur.sku || cur.name || 'item')}.jpg`;
+      if (a.dataset.xa === 'dl') { const link = document.createElement('a'); link.href = photo; link.download = fname; document.body.appendChild(link); link.click(); link.remove(); }
+      if (a.dataset.xa === 'share') { try { const blob = await (await fetch(photo)).blob(); const file = new File([blob], fname, { type: blob.type || 'image/jpeg' }); if (navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: cur.name }); else U.toast('This device can’t share photos — use Save photo instead'); } catch (_) { /* cancelled */ } }
+      if (a.dataset.xa === 'keep') { draft.price = a.dataset.v; draw(); }
+      if (a.dataset.xa === 'all') copyText([p.noTitle ? '' : draft.title, draft.desc, draft.price !== '' ? 'Price: ' + U.money(U.num(draft.price)) : ''].filter(Boolean).join('\n\n'), 'Everything');
+      if (a.dataset.xa === 'mark') markListed();
+    });
+    await load();
+    for (;;) {
+      const last = idx >= items.length - 1;
+      const r = await U.modal({ title: `Cross-list${items.length > 1 ? ` (${idx + 1}/${items.length})` : ''}`, wide: 'xl', body: root,
+        buttons: [{ label: 'Close', value: null, cls: 'btn-ghost' }, ...(last ? [] : [{ label: 'Next item →', value: 'next', cls: 'btn-primary' }])] });
+      if (r !== 'next') break;
+      idx++; await load();
+    }
   }
 
   async function markSoldDialog(list, { pick = false } = {}) {
@@ -1335,24 +1490,24 @@
   // US fee rules as published in Nov 2026 — every value is editable on the Platforms tab.
   const C = 'Nov 2026';
   const PLATFORM_PRESETS = {
-    poshmark: { name: 'Poshmark', color: '#8c2f39', url: 'https://poshmark.com', feePct: 20, smallThreshold: 15, smallFlat: 2.95, shipPaidBy: 'buyer', shipCharge: 6.49, checked: C,
+    poshmark: { name: 'Poshmark', color: '#8c2f39', url: 'https://poshmark.com', sellUrl: 'https://poshmark.com/create-listing', titleMax: 80,  feePct: 20, smallThreshold: 15, smallFlat: 2.95, shipPaidBy: 'buyer', shipCharge: 6.49, checked: C,
       notes: 'Flat $2.95 on sales under $15; 20% on $15 and up, on the sale price only. No separate processing fee. The buyer pays the prepaid USPS label ($6.49, up to 5 lb). You pay the upgrade for heavier boxes (+$5 for 5–10 lb, +$10 for 10–15 lb) and any shipping discount you offer — enter those under “My extra shipping cost”.' },
-    depop: { name: 'Depop', color: '#d1492e', url: 'https://www.depop.com', feePct: 0, procPct: 3.3, procFixed: 0.45, feeOnShipping: true, procOnShipping: true, shipPaidBy: 'buyer', checked: C,
+    depop: { name: 'Depop', color: '#d1492e', url: 'https://www.depop.com', sellUrl: 'https://www.depop.com/products/create/', noTitle: true, descMax: 1000, hashtags: 5,  feePct: 0, procPct: 3.3, procFixed: 0.45, feeOnShipping: true, procOnShipping: true, shipPaidBy: 'buyer', checked: C,
       notes: 'US: no selling fee. Payment processing 3.3% + $0.45 on the full order (item + shipping + tax). Boosted listings cost 12% of a boosted sale — add it under Additional costs if you boost. Buyers pay a separate marketplace fee that doesn’t come out of your payout.' },
-    ebay: { name: 'eBay', color: '#3a6ea5', url: 'https://www.ebay.com', feePct: 13.6, feeFixed: 0.40, smallThreshold: 10.01, smallFixed: 0.30, feeOnShipping: true, shipPaidBy: 'buyer', checked: C,
+    ebay: { name: 'eBay', color: '#3a6ea5', url: 'https://www.ebay.com', sellUrl: 'https://www.ebay.com/sl/sell', titleMax: 80,  feePct: 13.6, feeFixed: 0.40, smallThreshold: 10.01, smallFixed: 0.30, feeOnShipping: true, shipPaidBy: 'buyer', checked: C,
       notes: 'Most categories incl. clothing, shoes & accessories, no Store: 13.6% of the order total (item + shipping + tax) up to $7,500 (2.35% above), plus $0.40 per order ($0.30 on orders of $10 or less). Processing is included. Athletic sneakers $150+: 8% with no per-order fee. 250 free listings a month, then $0.35 each. Store plans and some categories differ.' },
-    mercari: { name: 'Mercari', color: '#7b4fa0', url: 'https://www.mercari.com', feePct: 10, feeOnShipping: true, shipPaidBy: 'buyer', checked: C,
+    mercari: { name: 'Mercari', color: '#7b4fa0', url: 'https://www.mercari.com', sellUrl: 'https://www.mercari.com/sell/', titleMax: 80,  feePct: 10, feeOnShipping: true, shipPaidBy: 'buyer', checked: C,
       notes: '10% selling fee on the item price + the shipping the buyer pays. No seller processing fee. Buyers pay a separate buyer-protection fee. Instant Pay cash-outs cost $3 (standard direct deposit is free).' },
-    'facebook marketplace': { name: 'Facebook Marketplace', color: '#1f6fd1', url: 'https://www.facebook.com/marketplace', feePct: 10, feeMin: 0.80, feeOnShipping: true, shipPaidBy: 'buyer', checked: C,
+    'facebook marketplace': { name: 'Facebook Marketplace', color: '#1f6fd1', url: 'https://www.facebook.com/marketplace', sellUrl: 'https://www.facebook.com/marketplace/create/item',  feePct: 10, feeMin: 0.80, feeOnShipping: true, shipPaidBy: 'buyer', checked: C,
       notes: 'Shipped (checkout) orders: 10% of the order total, minimum $0.80; processing is included. Local pickup paid in person is free — create a separate “Facebook local” platform with 0% if you sell both ways.' },
-    vinted: { name: 'Vinted', color: '#1f7a5c', url: 'https://www.vinted.com', feePct: 0, shipPaidBy: 'buyer', checked: C,
+    vinted: { name: 'Vinted', color: '#1f7a5c', url: 'https://www.vinted.com', sellUrl: 'https://www.vinted.com/items/new',  feePct: 0, shipPaidBy: 'buyer', checked: C,
       notes: 'No seller fees in the US — you keep the full item price. The buyer pays the Vinted fee (about 5% + $0.70) and the shipping label. Optional Bumps / Closet spotlight are paid promotions.' },
     amazon: { name: 'Amazon', color: '#e88a00', url: 'https://sellercentral.amazon.com', feePct: 17, feeTiers: [{ max: 15, pct: 5 }, { max: 20, pct: 10 }], feeMin: 0.30, feeOnShipping: true, shipPaidBy: 'varies', checked: C,
       extras: [{ id: 'amz-indiv', label: 'Individual plan — per item sold', amount: 0.99, kind: 'order' }],
       notes: 'Clothing & Accessories referral fee: 5% if the total (item + shipping you charge) is $15 or less, 10% from $15 to $20, 17% above $20; $0.30 minimum. Processing is included. Individual plan: +$0.99 per item sold. Professional plan: $39.99/month instead — delete the $0.99 cost and add $39.99 per month. Most other categories are 15%. FBA fulfillment and storage fees are extra.' },
-    etsy: { name: 'Etsy', color: '#f1641e', url: 'https://www.etsy.com', feePct: 6.5, feeOnShipping: true, procPct: 3, procFixed: 0.25, procOnShipping: true, listingFee: 0.20, shipPaidBy: 'buyer', checked: C,
+    etsy: { name: 'Etsy', color: '#f1641e', url: 'https://www.etsy.com', sellUrl: 'https://www.etsy.com/your/shops/me/tools/listings/create', titleMax: 140,  feePct: 6.5, feeOnShipping: true, procPct: 3, procFixed: 0.25, procOnShipping: true, listingFee: 0.20, shipPaidBy: 'buyer', checked: C,
       notes: 'US: $0.20 to list (renews every 4 months or when it sells), 6.5% transaction fee on item + shipping + gift wrap, and payment processing of 3% + $0.25 on the order total. Offsite Ads add 15% (12% if you sold $10k+ in the last year) on sales they bring in. Items must be vintage (20+ years), handmade or craft supplies.' },
-    grailed: { name: 'Grailed', color: '#111111', url: 'https://www.grailed.com', feePct: 9, feeTiers: [{ max: 119.99, pct: 6 }], feeMin: 1.99, procPct: 3.49, procFixed: 0.49, procOnShipping: true, shipPaidBy: 'buyer', checked: C,
+    grailed: { name: 'Grailed', color: '#111111', url: 'https://www.grailed.com', sellUrl: 'https://www.grailed.com/sell',  feePct: 9, feeTiers: [{ max: 119.99, pct: 6 }], feeMin: 1.99, procPct: 3.49, procFixed: 0.49, procOnShipping: true, shipPaidBy: 'buyer', checked: C,
       notes: 'Commission: 6% (minimum $1.99) on sales under $120, 9% from $120 (since May 20, 2026). With a Grailed label the commission is on the item price only. Payment processing 3.49% + $0.49 on the total incl. shipping (4.99% + $0.49 for international buyers).' },
     whatnot: { name: 'Whatnot', color: '#c9a400', url: 'https://www.whatnot.com', feePct: 8, procPct: 2.9, procFixed: 0.30, procOnShipping: true, shipPaidBy: 'buyer', checked: C,
       notes: 'Commission 8% of the item’s final price (not shipping) for sellers under $15k in the last 4 weeks; bigger sellers pay less, coins 4%. Payment processing 2.9% + $0.30 on the whole order incl. shipping and tax. No listing fees.' },
@@ -1383,7 +1538,8 @@
   function blankPlatform(name, i = 0) {
     return { id: U.uid(), name, color: PLAT_COLORS[i % PLAT_COLORS.length], active: true, url: '',
       feePct: 0, feeFixed: 0, feeMin: 0, feeTiers: [], smallThreshold: null, smallFlat: null, smallFixed: null, feeOnShipping: false,
-      procPct: 0, procFixed: 0, procMin: 0, procOnShipping: false, listingFee: 0, extras: [], shipPaidBy: 'buyer', shipCharge: null, sellerShipCost: 0, notes: '', checked: '' };
+      procPct: 0, procFixed: 0, procMin: 0, procOnShipping: false, listingFee: 0, extras: [], shipPaidBy: 'buyer', shipCharge: null, sellerShipCost: 0, notes: '', checked: '',
+      sellUrl: '', titleMax: null, descMax: null, hashtags: 0, noTitle: false };
   }
   const profiles = () => (Array.isArray(S().platformProfiles) ? S().platformProfiles : (S().platformProfiles = []));
   const profileFor = (name) => { const k = String(name || '').trim().toLowerCase(); return k ? profiles().find((p) => p.name.toLowerCase() === k) || null : null; };
@@ -1391,18 +1547,25 @@
   const platformColor = (name) => (profileFor(name) || {}).color || '#8a938f';
   const platformTag = (name) => (name ? `<span class="ptag" style="--c:${esc(platformColor(name))}">${esc(platformLabel(name))}</span>` : '');
   /** Build profiles the first time (from the old comma list + items), using presets for known platforms. */
-  const fromPreset = (pre, i) => ({ ...blankPlatform(pre.name, i), ...U.clone(pre), extras: (pre.extras || []).map((x) => ({ ...x, id: U.uid() })) });
+  const FEE_COMPARE = FEE_KEYS.filter((k) => !['notes', 'checked', 'shipCharge'].includes(k));
+  const normFee = (k, v) => k === 'feeTiers' ? JSON.stringify((v || []).map((t) => [+t.max || 0, +t.pct || 0])) : k === 'extras' ? JSON.stringify((v || []).map((x) => [String(x.label || ''), +x.amount || 0, x.kind || ''])) : k === 'shipPaidBy' ? (v || 'buyer') : typeof v === 'boolean' || k.endsWith('OnShipping') ? !!v : (v === null || v === undefined || v === '' ? null : +v || 0);
+  const feeSnap = (p) => Object.fromEntries(FEE_COMPARE.map((k) => [k, normFee(k, p[k])]));
+  const sameFees = (a, b) => FEE_COMPARE.every((k) => JSON.stringify(normFee(k, a[k])) === JSON.stringify(normFee(k, b[k])));
+  const XL_KEYS = ['sellUrl', 'titleMax', 'descMax', 'hashtags', 'noTitle'];
+  const fromPreset = (pre, i) => { const p = { ...blankPlatform(pre.name, i), ...U.clone(pre), extras: (pre.extras || []).map((x) => ({ ...x, id: U.uid() })) }; p.feeBase = feeSnap(p); return p; };
   function ensurePlatformProfiles() {
     if (Array.isArray(S().platformProfiles) && S().platformProfiles.length) return upgradePlatformPresets();
     const names = uniq([...(S().platforms || []), ...Object.keys(PLATFORM_PRESETS), ...state.items.map((i) => i.platform)].filter(Boolean).map((n) => n.toLowerCase()));
     S().platformProfiles = names.map((n, i) => { const pre = presetFor(n); return pre ? fromPreset(pre, i) : blankPlatform(titleCase(n), i); });
-    S().platformPresetsV = 2;
+    S().platformPresetsV = 3;
     return true;
   }
   /** One-time upgrade for existing data: add the new default platforms and refresh fee facts
       on the original presets you never edited. Anything you changed yourself is left alone. */
   function upgradePlatformPresets() {
-    if ((S().platformPresetsV || 1) >= 2) return false;
+    const v = S().platformPresetsV || 1;
+    if (v >= 3) return false;
+    if (v === 2) { upgradeCrossListFields(); S().platformPresetsV = 3; return true; }
     const ps = profiles();
     const same = (a, b) => (+a || 0) === (+b || 0);
     ps.forEach((p) => {
@@ -1415,8 +1578,125 @@
       FEE_KEYS.forEach((f) => { if (f === 'shipCharge' && hasVal(p.shipCharge)) return; p[f] = pre[f]; });
     });
     Object.values(PLATFORM_PRESETS).forEach((pre) => { if (!ps.some((p) => p.name.toLowerCase() === pre.name.toLowerCase())) ps.push(fromPreset(pre, ps.length)); });
-    S().platformPresetsV = 2;
+    upgradeCrossListFields();
+    S().platformPresetsV = 3;
     return true;
+  }
+  /** v3: cross-listing details (sell page, title limit…) and a record of the published fees each platform started from. */
+  function upgradeCrossListFields() {
+    profiles().forEach((p) => {
+      const pre = presetFor(p.name);
+      XL_KEYS.forEach((k) => { if (p[k] === undefined) p[k] = pre && pre[k] !== undefined ? pre[k] : blankPlatform('')[k]; });
+      if (!p.feeBase && pre && sameFees(p, pre)) p.feeBase = feeSnap(p);
+    });
+  }
+
+  /* =========================================================
+     Fee updates — compare your platforms with the shared fee list
+     (platform-fees.json in the app's own folder; update that file when a
+     marketplace changes its fees and every device can pick it up)
+     ========================================================= */
+  const FEE_LIST_URL = 'platform-fees.json';
+  const FEE_CHECK_KEY = 'thrift-fee-check';
+  const FEE_LABEL = { feePct: 'Selling fee %', feeFixed: 'Fixed fee per order', feeMin: 'Minimum fee', feeTiers: 'Price tiers', smallThreshold: 'Small-order threshold', smallFlat: 'Small-order flat fee', smallFixed: 'Small-order fixed fee',
+    feeOnShipping: 'Fee charged on shipping', procPct: 'Processing %', procFixed: 'Processing fixed', procMin: 'Processing minimum', procOnShipping: 'Processing on shipping', listingFee: 'Listing fee', extras: 'Additional costs',
+    shipPaidBy: 'Who pays shipping', sellerShipCost: 'Your extra shipping cost' };
+  const MONEYISH = new Set(['feeFixed', 'feeMin', 'smallThreshold', 'smallFlat', 'smallFixed', 'procFixed', 'procMin', 'listingFee', 'sellerShipCost']);
+  function feeVal(k, v) {
+    if (k === 'feeTiers') { const t = (v || []).filter((x) => +x.max > 0); return t.length ? t.map((x) => `${+x.pct}% up to ${U.money(+x.max)}`).join('; ') : 'none'; }
+    if (k === 'extras') { const e = v || []; return e.length ? e.map((x) => `${x.label || 'Cost'} ${x.kind === 'pct' ? +x.amount + '%' : U.money(+x.amount) + (x.kind === 'month' ? '/mo' : '/sale')}`).join('; ') : 'none'; }
+    if (k === 'shipPaidBy') return { buyer: 'buyer', seller: 'you', varies: 'varies' }[v || 'buyer'];
+    if (typeof v === 'boolean' || k.endsWith('OnShipping')) return v ? 'yes' : 'no';
+    if (v === null || v === undefined || v === '') return '—';
+    return MONEYISH.has(k) ? U.money(+v) : (+v) + '%';
+  }
+  async function loadFeeList() {
+    try {
+      const r = await fetch(`${FEE_LIST_URL}?t=${Date.now()}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (!j || typeof j.platforms !== 'object') throw new Error('bad file');
+      return { ...j, source: 'online' };
+    } catch (e) {
+      return { updated: '', checked: C, platforms: PLATFORM_PRESETS, source: 'built-in', error: e.message };
+    }
+  }
+  /** What would change on each of your platforms if you took the fee list's numbers. */
+  function feeDiffs(list) {
+    const out = [];
+    const entries = Object.values(list.platforms || {});
+    profiles().forEach((p) => {
+      const pub = entries.find((x) => x && x.name && x.name.toLowerCase() === p.name.toLowerCase());
+      if (!pub) return;
+      const changes = FEE_COMPARE.filter((k) => JSON.stringify(normFee(k, p[k])) !== JSON.stringify(normFee(k, pub[k] ?? blankPlatform('')[k])))
+        .map((k) => ({ k, label: FEE_LABEL[k] || k, from: feeVal(k, p[k]), to: feeVal(k, pub[k] ?? blankPlatform('')[k]) }));
+      if (!changes.length) return;
+      const base = p.feeBase;
+      const customized = base ? FEE_COMPARE.some((k) => JSON.stringify(normFee(k, p[k])) !== JSON.stringify(base[k])) : true;
+      out.push({ p, pub, changes, customized });
+    });
+    const missing = entries.filter((x) => x && x.name && !profiles().some((p) => p.name.toLowerCase() === x.name.toLowerCase()));
+    return { diffs: out, missing };
+  }
+  function applyFees(p, pub) {
+    const pre = fromPreset(pub, 0);
+    FEE_KEYS.forEach((f) => { if (f === 'shipCharge' && hasVal(p.shipCharge)) return; p[f] = pre[f]; });
+    XL_KEYS.forEach((k) => { if (!hasVal(p[k]) && hasVal(pre[k])) p[k] = pre[k]; });
+    p.feeBase = feeSnap(p);
+  }
+  function renderFeeStrip(list, res) {
+    const el = $('#feeStrip'); if (!el) return;
+    const when = list && list.updated ? U.fmtDate(list.updated) : '';
+    const fresh = res ? res.diffs.filter((d) => !d.customized) : [];
+    const mine = res ? res.diffs.filter((d) => d.customized) : [];
+    const n = fresh.length + (res ? res.missing.filter((m) => !(S().feeDismissed || []).includes(m.name.toLowerCase())).length : 0);
+    const mineNote = mine.length ? ` ${esc(mine.map((d) => d.p.name).join(', '))} ${mine.length === 1 ? 'uses' : 'use'} your own numbers.` : '';
+    el.innerHTML = n ? `<div class="fee-alert"><span class="fa-ico">🔔</span><div><b>Fee updates available</b> for ${esc([...fresh.map((d) => d.p.name), ...res.missing.filter((m) => !(S().feeDismissed || []).includes(m.name.toLowerCase())).map((m) => m.name + ' (new)')].join(', '))}${when ? ` · fee list of ${esc(when)}` : ''}</div><button type="button" class="btn btn-sm btn-gold" data-fee-review>Review &amp; update</button></div>`
+      : `<div class="fee-ok muted small">✓ ${list ? `Your platforms match the shared fee list${when ? ` (updated ${esc(when)})` : ''}.${mineNote}` : 'Fees as published Nov 2026.'} <button type="button" class="linklike" data-fee-review>Check now</button></div>`;
+  }
+  /** quietly look for a newer fee list once a day when Platforms opens */
+  async function autoFeeCheck() {
+    let last = 0; try { last = +localStorage.getItem(FEE_CHECK_KEY) || 0; } catch (_) { /* ignore */ }
+    if (Date.now() - last < 864e5 && autoFeeCheck.cache) { renderFeeStrip(autoFeeCheck.cache.list, feeDiffs(autoFeeCheck.cache.list)); return; }
+    const list = await loadFeeList();
+    if (list.source !== 'online') { renderFeeStrip(null, null); return; }
+    try { localStorage.setItem(FEE_CHECK_KEY, String(Date.now())); } catch (_) { /* ignore */ }
+    autoFeeCheck.cache = { list };
+    if (currentView() === 'platforms') renderFeeStrip(list, feeDiffs(list));
+  }
+  async function feeUpdateDialog() {
+    const btn = $('#btnFeeCheck'); const was = btn.textContent; btn.disabled = true; btn.textContent = 'Checking…';
+    const list = await loadFeeList();
+    btn.disabled = false; btn.textContent = was;
+    autoFeeCheck.cache = { list };
+    try { localStorage.setItem(FEE_CHECK_KEY, String(Date.now())); } catch (_) { /* ignore */ }
+    const res = feeDiffs(list);
+    renderFeeStrip(list, res);
+    const when = list.updated ? U.fmtDate(list.updated) : list.checked;
+    const src = list.source === 'online' ? `the shared fee list (updated ${esc(when)})` : `the fees built into this version (${esc(list.checked)}) — the online list couldn’t be reached`;
+    if (!res.diffs.length && !res.missing.length) {
+      await U.modal({ title: 'Fees are up to date', body: `<p>✓ Every platform matches ${src}.</p><p class="muted small">Marketplaces announce fee changes a few times a year. When one does, the shared list is updated and this button brings the new numbers in — on every device, through sync.</p>`, buttons: [{ label: 'OK', cls: 'btn-primary', value: true }] });
+      return;
+    }
+    const body = `<p class="muted">Compared with ${src}. Ticked platforms get the new numbers; your shop links, colors and anything you set for shipping stay as they are.</p>
+      <div class="fee-diffs">${res.diffs.map((d, i) => `<label class="fee-diff ${d.customized ? 'mine' : ''}">
+        <input type="checkbox" data-fd="${i}" ${d.customized ? '' : 'checked'}>
+        <div><div class="fd-h"><span class="plat-dot" style="--pc:${esc(d.p.color)}"></span><b>${esc(d.p.name)}</b>${d.customized ? '<span class="badge b-other">you edited this one</span>' : ''}</div>
+          <ul>${d.changes.map((c) => `<li>${esc(c.label)}: <s>${esc(c.from)}</s> → <b>${esc(c.to)}</b></li>`).join('')}</ul>
+          ${d.customized ? '<p class="muted small">You changed these fees yourself. Updating replaces your numbers with the published ones.</p>' : ''}
+          ${d.pub.notes ? `<details><summary class="small">What the new fees mean</summary><p class="small">${esc(d.pub.notes)}</p></details>` : ''}</div></label>`).join('')}
+      ${res.missing.length ? `<div class="fee-new"><b>Also available:</b> ${res.missing.map((m, i) => `<label class="check"><input type="checkbox" data-fn="${i}"> ${esc(m.name)}</label>`).join(' ')}</div>` : ''}</div>`;
+    const pick = await U.modal({ title: 'Fee updates', wide: true, body,
+      buttons: [{ label: 'Not now', value: null, cls: 'btn-ghost' }, { label: 'Update ticked platforms', cls: 'btn-primary', value: (b) => ({ d: [...b.querySelectorAll('[data-fd]:checked')].map((x) => +x.dataset.fd), n: [...b.querySelectorAll('[data-fn]:checked')].map((x) => +x.dataset.fn) }) }] });
+    if (pick) { const skipped = res.missing.filter((m, i) => !pick.n.includes(i)).map((m) => m.name.toLowerCase()); if (skipped.length) { S().feeDismissed = uniq([...(S().feeDismissed || []), ...skipped]); saveSettings(); renderFeeStrip(list, feeDiffs(list)); } }
+    if (!pick || (!pick.d.length && !pick.n.length)) return;
+    const names = [];
+    pick.d.forEach((i) => { const d = res.diffs[i]; applyFees(d.p, d.pub); names.push(d.p.name); });
+    pick.n.forEach((i) => { const m = res.missing[i]; profiles().push(fromPreset(m, profiles().length)); names.push(m.name + ' (new)'); });
+    saveSettings(); populateFilters(); renderPlatforms(); renderFeeStrip(list, feeDiffs(list));
+    addActivity([{ id: U.uid(), t: Date.now(), who: myName(), kind: 'platforms', n: 0, label: `updated platform fees: ${names.join(', ')}` }]);
+    const synced = window.Sync && Sync.signedIn && Sync.signedIn();
+    U.toast(`Updated ${names.join(', ')}${synced ? ' — your other devices get it through sync' : ''}`, 'ok');
   }
 
   /* ---- listings (where an item is listed, with links) ---- */
@@ -1584,7 +1864,7 @@
           <div><b>${U.money0(st.gross)}</b><span>gross sales</span></div>
           <div><b>${st.avg === null ? '—' : U.pct(st.avg)}</b><span>actual avg fee</span></div>
         </div>
-        <div class="plat-foot"><span class="muted small">${p.checked ? 'Fees last checked ' + esc(p.checked) : 'Fees not set yet'}</span><span class="spacer"></span>
+        <div class="plat-foot"><span class="muted small">${p.checked ? 'Fees last checked ' + esc(p.checked) : 'Fees not set yet'} · <a class="linklike" href="https://www.google.com/search?q=${encodeURIComponent(p.name + ' seller fees')}" target="_blank" rel="noopener noreferrer" title="Search for this platform’s current published fees">Look up current fees ↗</a></span><span class="spacer"></span>
           <button class="btn btn-sm" data-pact="edit">Edit</button>
           <button class="btn btn-sm btn-ghost" data-pact="toggle">${p.active === false ? 'Show' : 'Hide'}</button>
           <button class="btn btn-sm btn-ghost danger-text" data-pact="delete">Delete</button></div>
@@ -1645,6 +1925,14 @@
       </div>
       <h4 class="sec">Additional costs</h4>
       <div data-extras></div>
+      <h4 class="sec">Cross-listing helper</h4>
+      <div class="form-grid g3">
+        <label class="field span-2"><span>“Sell an item” page</span><input name="sellUrl" value="${esc(cur.sellUrl || '')}" placeholder="the page where you create a listing"></label>
+        <label class="field"><span>Title limit (characters)</span><input name="titleMax" inputmode="numeric" value="${v(cur.titleMax)}" placeholder="no limit"></label>
+        <label class="field"><span>Description limit (characters)</span><input name="descMax" inputmode="numeric" value="${v(cur.descMax)}" placeholder="no limit"></label>
+        <label class="field"><span>Hashtags to add</span><input name="hashtags" inputmode="numeric" value="${cur.hashtags || ''}" placeholder="0"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="noTitle" ${cur.noTitle ? 'checked' : ''}> This site has no title field — put the title at the top of the description</label>
       <h4 class="sec">Notes</h4>
       <div class="form-grid">
         <label class="field span-2"><span>Notes</span><textarea name="notes" rows="3">${esc(cur.notes)}</textarea></label>
@@ -1673,7 +1961,9 @@
       feeTiers: [0, 1, 2].map((i) => ({ max: numOr('tierMax' + i, null), pct: numOr('tierPct' + i, null) })).filter((t) => t.max > 0 && t.pct !== null).sort((a, b) => a.max - b.max),
       shipPaidBy: f('shipPaidBy').value, shipCharge: numOr('shipCharge', null), sellerShipCost: numOr('sellerShipCost'),
       extras: extras.filter((x) => (x.label || '').trim() || hasVal(x.amount)).map((x) => ({ id: x.id || U.uid(), label: (x.label || '').trim(), amount: U.num(x.amount) ?? 0, kind: x.kind || 'order' })),
-      notes: f('notes').value.trim(), checked: f('checked').value.trim()
+      notes: f('notes').value.trim(), checked: f('checked').value.trim(),
+      sellUrl: f('sellUrl').value.trim() ? U.normUrl(f('sellUrl').value) : '', titleMax: numOr('titleMax', null) || null, descMax: numOr('descMax', null) || null,
+      hashtags: Math.max(0, Math.min(30, Math.round(numOr('hashtags', 0)))), noTitle: f('noTitle').checked
     });
     const example = () => {
       const p2 = read();
@@ -1716,6 +2006,8 @@
   }
   function setupPlatforms() {
     $('#btnAddPlatform').onclick = () => platformDialog(null);
+    $('#btnFeeCheck').onclick = feeUpdateDialog;
+    $('#feeStrip').addEventListener('click', (e) => { if (e.target.closest('[data-fee-review]')) feeUpdateDialog(); });
     ['#pcPrice', '#pcCost', '#pcShip'].forEach((sel) => $(sel).addEventListener('input', renderFeeCalc));
     $('#platGrid').addEventListener('click', async (e) => {
       const b = e.target.closest('[data-pact]'); if (!b) return;
@@ -2776,7 +3068,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.24d';
+  const APP_VERSION = '2026.11.24e';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3019,7 +3311,7 @@
     const hint = await Store.getHint().catch(() => '');
     const qa = await Store.getQuestionAnswers().catch(() => null);
     return { recovery: !!(hint || qa), logo: !!(state.logo && state.logo.dataURL), items: state.items.length, sold: state.items.filter((i) => Calc.isSold(i)).length,
-      platformsTouched: !!S().platformsSeen, backup: !!state.meta.lastBackup, name: !!(S().yourName || '').trim(), shop: !!S().shopUrl, sync: !!(window.Sync && Sync.signedIn && Sync.signedIn()) };
+      platformsTouched: !!S().platformsSeen, crossListed: state.items.some((i) => (i.listings || []).filter((l) => l.status === 'active').length >= 2), backup: !!state.meta.lastBackup, name: !!(S().yourName || '').trim(), shop: !!S().shopUrl, sync: !!(window.Sync && Sync.signedIn && Sync.signedIn()) };
   }
   function showView(v) {
     document.body.classList.toggle('has-bulkbar', v === 'inventory' && state.selection.size > 0);
@@ -3036,7 +3328,7 @@
     else if (v === 'expenses') { renderExpenses(); mileGrid.render(); }
     else if (v === 'reports') renderReport();
     else if (v === 'settings') { renderSettings(); renderPlanSettings(); renderSyncSettings(); renderRecoverySettings(); }
-    else if (v === 'platforms') { renderPlatforms(); if (!S().platformsSeen) { S().platformsSeen = true; saveSettings(); } }
+    else if (v === 'platforms') { renderPlatforms(); autoFeeCheck(); if (!S().platformsSeen) { S().platformsSeen = true; saveSettings(); } }
     else if (v === 'guide') Guide.render($('#guideRoot'), guideCtx);
     else if (v === 'actions') renderActions();
     requestAnimationFrame(() => { applyHeights(); [invGrid, ordGrid, expGrid].forEach((g) => g && g.applySticky()); });
