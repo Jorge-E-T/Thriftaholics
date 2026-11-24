@@ -497,6 +497,11 @@
     </div>
   </div>
 
+  <div class="undo-dock hidden" id="undoDock" role="toolbar" aria-label="Undo and redo">
+    <button type="button" id="btnUndo" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg><span class="ud-t"><b>Undo</b><em id="undoWhat">Nothing to undo</em></span><i class="ud-n hidden" id="undoCount"></i></button>
+    <span class="ud-sep"></span>
+    <button type="button" id="btnRedo" disabled title="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg><span class="ud-t"><b>Redo</b></span></button>
+  </div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <div class="popover hidden" id="colPopover"></div>
 
