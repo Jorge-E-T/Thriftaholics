@@ -1328,3 +1328,41 @@ a.btn, a.btn:hover { text-decoration: none; }
 .so-ph img { width: 100%; height: 100%; object-fit: cover; }
 .so-t { flex: 1; min-width: 0; display: flex; flex-direction: column; } .so-t em { font-style: normal; font-size: 12.5px; color: var(--text-2); }
 .so-r { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+
+/* ---------- permanent undo / redo ---------- */
+.undo-dock { position: fixed; left: 20px; bottom: 20px; z-index: 75; display: flex; align-items: stretch; background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 10px 30px rgba(10,30,28,.18); overflow: hidden; transition: bottom .25s var(--ease), opacity .2s; }
+body.has-bulkbar .undo-dock { bottom: calc(var(--bbh, 60px) + 34px); }
+.undo-dock button { display: flex; align-items: center; gap: 9px; border: 0; background: none; color: var(--text); padding: 8px 14px 8px 12px; cursor: pointer; font: inherit; position: relative; transition: background .15s; }
+.undo-dock button:hover:not(:disabled) { background: var(--surface-2); }
+.undo-dock button:disabled { cursor: default; color: var(--text-3); }
+.undo-dock svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+#btnUndo:not(:disabled) svg { color: var(--ink-text); }
+.ud-t { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.ud-t b { font-size: 13px; } .ud-t em { font-style: normal; font-size: 11.5px; color: var(--text-3); max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ud-n { position: absolute; top: 4px; left: 26px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--gold); color: #2a1f05; font: 800 10px/16px var(--font); font-style: normal; text-align: center; }
+.ud-sep { width: 1px; background: var(--line); margin: 8px 0; }
+.undo-dock.pop { animation: ud-pop .45s var(--ease); }
+@keyframes ud-pop { 30% { transform: scale(1.06); box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 45%, transparent), 0 10px 30px rgba(10,30,28,.18); } }
+.main { padding-bottom: 96px; }
+@media (max-width: 700px) {
+  .undo-dock { left: 10px; bottom: 12px; border-radius: 12px; }
+  body.has-bulkbar .undo-dock { bottom: calc(var(--bbh, 60px) + 20px); }
+  .undo-dock button { padding: 9px 12px; }
+  .ud-t em { display: none; } .ud-t b { font-size: 12.5px; }
+  .ud-n { left: 24px; top: 3px; }
+}
+@media print { .undo-dock { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { .undo-dock.pop { animation: none; } }
+/* bulk bar: one tidy row (left:50% used to squeeze it to half the screen) */
+.bulkbar { width: max-content; }
+@media (max-width: 700px) {
+  .bulkbar { left: 10px; right: 10px; width: auto; transform: none; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; animation: barin-m .18s ease-out; }
+  .bulkbar::-webkit-scrollbar { display: none; }
+  .bulkbar > * { flex: none; }
+  .toasts { left: 10px; right: 10px; bottom: 66px; align-items: flex-end; }
+  body.has-bulkbar .toasts { bottom: calc(var(--bbh, 60px) + 70px); }
+}
+@keyframes barin-m { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+body:not(.has-bulkbar) .bulkbar { display: none !important; }
+body.has-bulkbar .toasts { bottom: calc(var(--bbh, 60px) + 34px); }
+@media (max-width: 700px) { body.has-bulkbar .toasts { bottom: calc(var(--bbh, 60px) + 70px); } }
