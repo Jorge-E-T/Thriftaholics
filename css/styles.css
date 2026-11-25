@@ -1646,3 +1646,36 @@ img { transition: opacity .25s; }
 .wn-it:nth-child(2) { animation-delay: .05s; } .wn-it:nth-child(3) { animation-delay: .1s; } .wn-it:nth-child(4) { animation-delay: .15s; } .wn-it:nth-child(5) { animation-delay: .2s; } .wn-it:nth-child(6) { animation-delay: .25s; }
 .wn-ic { font-size: 24px; } .wn-it b { font-size: 14px; } .wn-it p { margin: 2px 0 0; font-size: 13px; color: var(--text-2); }
 .wn-rel:not(:first-child) { opacity: .85; }
+
+/* ---------- invoices ---------- */
+.inv-items { display: grid; gap: 6px; margin: 0 0 12px; max-height: 220px; overflow: auto; }
+.inv-it { display: grid; grid-template-columns: 42px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.inv-it img, .inv-it .inv-ph { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; display: grid; place-items: center; background: var(--surface-2); font-size: 20px; }
+.inv-it span { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inv-it em { display: block; font-style: normal; font-weight: 400; color: var(--muted); font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inv-total { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 12px; padding: 10px 14px; border-radius: 12px; background: #c9952e; color: #fff; font-weight: 800; }
+.inv-total b { font-size: 1.25rem; }
+.inv-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.inv-acts .btn { flex: 1 1 180px; }
+.inv-status { margin: 10px 0 0; line-height: 1.5; }
+.inv-status.ok, [data-invmsg].ok { color: #2f8a57; }
+.inv-status.warn, [data-invmsg].warn { color: #b07a12; }
+.inv-status.bad, [data-invmsg].bad { color: #b83a32; }
+.inv-conn { padding: 8px 12px; border-radius: 10px; background: rgba(201,149,46,.12); font-size: .9rem; margin: 0 0 12px; }
+.inv-conn.ok { background: rgba(47,138,87,.12); color: #2f8a57; font-weight: 700; }
+.inv-key { display: flex; gap: 6px; } .inv-key input { flex: 1; min-width: 0; }
+.inv-line { font-size: .92rem; }
+.er-box { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--surface-2); }
+.er-box p { margin: 6px 0 10px; }
+.er-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.er-or { text-align: center; margin: 14px 0 4px; }
+.ok-text { color: #2f8a57; } .bad-text { color: #b83a32; }
+.er-state { padding: 8px 12px; border-radius: 10px; background: var(--surface-2); font-size: .88rem; margin: 6px 0 10px; }
+.er-state.on { background: rgba(47,138,87,.12); color: #2f8a57; }
+.er-state.warn { background: rgba(201,149,46,.14); color: #8a5d0c; }
+
+/* inventory: active items first, sold below a divider; Hide sold toggle */
+.btn-toggle.on { background: var(--ink); color: #fff; border-color: transparent; }
+table tbody tr.grp-start > td { border-top: 3px solid #c9952e !important; }
+.cards-mode tbody tr.grp-start { margin-top: 22px; position: relative; }
+.cards-mode tbody tr.grp-start::before { content: 'Sold & donated'; position: absolute; top: -20px; left: 4px; font-size: .78rem; font-weight: 700; color: #c9952e; letter-spacing: .04em; text-transform: uppercase; }
