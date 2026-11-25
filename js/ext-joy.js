@@ -289,6 +289,9 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.25f', d: 'Nov 25, 2026', items: [
+      ['🔐', 'Clearer Gmail permission help', 'If Google hasn’t given the Gmail script permission to send email, the app now explains exactly how to fix it.']
+    ] },
     { v: '2026.11.25e', d: 'Nov 25, 2026', items: [
       ['📋', 'Active items first', 'Inventory now lists the items you still have first, in SKU order, with sold items below a gold line.'],
       ['🙈', 'Hide sold', 'One tap hides sold and donated items for a clean view of your active inventory.']

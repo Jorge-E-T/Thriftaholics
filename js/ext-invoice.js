@@ -70,7 +70,7 @@ function doPost(e) {
       out = { ok: true, quota: MailApp.getRemainingDailyQuota() };
     }
   } catch (err) {
-    out = { ok: false, error: String((err && err.message) || err) };
+    out = { ok: false, error: explain(err) };
   }
   return reply(out);
 }
@@ -103,8 +103,13 @@ function resetSend(d) {
     PROPS.setProperty('reset_' + d.deviceId, JSON.stringify(r));
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: String((err && err.message) || err) };
+    return { ok: false, error: explain(err) };
   }
+}
+function explain(err) {
+  const m = String((err && err.message) || err);
+  if (/permission|authoriz/i.test(m)) return 'The Gmail script isn’t allowed to send email yet. In script.google.com (signed in as the Gmail owner), run “authorize” and tick every box on Google’s permission screen. (' + m.slice(0, 120) + ')';
+  return m;
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
@@ -112,8 +117,10 @@ function doGet() {
   return ContentService.createTextOutput('Thriftaholics invoice mailer is running. Paste this page\\'s address into Thriftaholics → Settings → Email invoices.');
 }
 
-/* Run this once from the editor (▶ Run) to give the script permission to send email. */
+/* Run this once from the editor (▶ Run) to give the script permission to send email.
+   On Google's permission screen, tick EVERY box (or "Select all") before clicking Continue. */
 function authorize() {
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   Logger.log('Ready. Sending as ' + Session.getEffectiveUser().getEmail() + ' — ' + MailApp.getRemainingDailyQuota() + ' emails left today.');
 }
 `;
@@ -293,7 +300,10 @@ ${withLogo ? `<td width="64" style="vertical-align:middle"><img src="cid:logo" w
     const res = await fetch(url, { method: 'POST', body: JSON.stringify({ ...payload, key }), redirect: 'follow' });
     const t = await res.text(); let j;
     try { j = JSON.parse(t); } catch (_) { throw new Error(/<html/i.test(t) ? 'Google answered with a web page instead of the mailer. Check that the script is deployed with access set to “Anyone”, and that you copied the Web app link that ends in /exec.' : 'Unexpected answer from the Gmail script.'); }
-    if (!j.ok) throw new Error(j.error || 'The Gmail script could not send the email.');
+    if (!j.ok) {
+      if (/do not have permission|Required permissions|isn’t allowed to send/i.test(j.error || '')) throw new Error('Google hasn’t given the Gmail script permission to send email. Fix: open script.google.com signed in as the Gmail owner, open “Thriftaholics Invoices”, pick “authorize” and click ▶ Run, then on Google’s screen tick “Select all” (or every box) and click Continue. Then test again here.');
+      throw new Error(j.error || 'The Gmail script could not send the email.');
+    }
     return j;
   }
   async function sendGmail(inv, pdf) {
