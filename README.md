@@ -20,6 +20,8 @@ A private, password-protected inventory, ordering and sales tracker that runs en
 - **Goal celebrations & streaks:** confetti when a monthly goal is reached; streaks of months in a row on the goals card.
 - **Seasonal touches:** subtle header decorations by season (per device, can be turned off).
 - **Loading shimmer** while data unlocks, and **What's new** notes after each update (Settings → Business).
+- **Invoices for buyers:** sold item → 🧾 Invoice makes a branded PDF invoice (single items or bundle orders). Email it in one tap from your own Gmail (free Google Apps Script, set up once — see the Guide), or send/share the PDF from your phone.
+- **Password reset by email:** once the Gmail script is set up, the lock screen's Forgot password? can email a one-time reset code to the shop's Gmail (the account that runs the script). Each device has its own code, renewed after every use; hint and reset questions still work.
 - **First-launch tour:** a 60-second guided tour the first time the app opens (replay from the Guide).
 - **Guide tab:** a complete illustrated tutorial in 17 chapters, with a setup checklist that ticks itself off, search, “Mark as read” progress and **Show me** buttons that jump to the right screen and highlight the button to press.
 - **Inventory grid** with every column from the original spreadsheet: Item Name, Category, SKU, Purchase Price, Selling Price, Status, Platform it sold, Date Posted, Days Active (calculated), Date Sold and Total After Fees. It also adds Fees, Shipping Cost, Profit and Notes.
