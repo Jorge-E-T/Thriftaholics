@@ -15,6 +15,11 @@ A private, password-protected inventory, ordering and sales tracker that runs en
 - **Milestones & Year in Review:** badges on the Dashboard with a celebration when you earn one, and an animated yearly recap that saves as a branded PDF.
 - **Voice typing:** a 🎤 appears in text boxes and the search boxes; tap and speak (Chrome on Android, Safari on iPhone; prices are turned into numbers). In the iPhone Home Screen app, use the keyboard's 🎤 instead. Turn it off per device in Settings → Business.
 - **Read aloud:** press and hold any box (or click and hold on a computer) and let go to hear its label and contents, using the phone's own voice; works on Android and iPhone, including the Home Screen app. On/off and speed in Settings → Business.
+- **Share cards:** item details → 📣 Share card makes a branded Instagram/Facebook image (post 4:5 or story 9:16), "For sale" or "Just sold!", to share or save.
+- **Smart price suggestions:** from your own sales of similar items (brand / category / size), with range, typical days to sell and sell-through; "Use $X" fills the price.
+- **Goal celebrations & streaks:** confetti when a monthly goal is reached; streaks of months in a row on the goals card.
+- **Seasonal touches:** subtle header decorations by season (per device, can be turned off).
+- **Loading shimmer** while data unlocks, and **What's new** notes after each update (Settings → Business).
 - **First-launch tour:** a 60-second guided tour the first time the app opens (replay from the Guide).
 - **Guide tab:** a complete illustrated tutorial in 17 chapters, with a setup checklist that ticks itself off, search, “Mark as read” progress and **Show me** buttons that jump to the right screen and highlight the button to press.
 - **Inventory grid** with every column from the original spreadsheet: Item Name, Category, SKU, Purchase Price, Selling Price, Status, Platform it sold, Date Posted, Days Active (calculated), Date Sold and Total After Fees. It also adds Fees, Shipping Cost, Profit and Notes.
