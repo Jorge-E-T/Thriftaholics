@@ -1608,3 +1608,41 @@ body.has-bulkbar .toasts { bottom: calc(var(--bbh, 60px) + 34px); }
   .grid tbody tr, .act-row, .mini-row, .best, .bm, .sh-main { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 }
 tr.tts-ready td { box-shadow: inset 0 0 0 9999px rgba(231,184,79,.18); }
+
+/* ---------- loading shimmer ---------- */
+.skel { border-radius: 8px; margin: 4px 0; background: linear-gradient(100deg, var(--surface-3) 30%, color-mix(in srgb, var(--surface-3) 40%, var(--surface)) 50%, var(--surface-3) 70%); background-size: 300% 100%; animation: skel 1.3s ease-in-out infinite; }
+@keyframes skel { from { background-position: 100% 0; } to { background-position: 0 0; } }
+img { transition: opacity .25s; }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+/* ---------- share cards ---------- */
+.sc-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; align-items: start; }
+.sc-prev { display: grid; place-items: center; background: var(--surface-2); border-radius: 14px; padding: 12px; min-height: 300px; }
+.sc-prev img { max-width: 100%; max-height: 62vh; border-radius: 10px; box-shadow: 0 12px 34px rgba(0,0,0,.25); animation: ck-pop .3s var(--ease); }
+.sc-skel { width: 260px; height: 325px; }
+.sc-tools { display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 700px) { .sc-wrap { grid-template-columns: 1fr; } .sc-prev img { max-height: 48vh; } }
+
+/* ---------- seasonal header ---------- */
+.topbar { position: relative; overflow: hidden; }
+.topbar > *:not(.season-fx) { position: relative; z-index: 1; }
+.season-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: .9; }
+
+/* ---------- goals ---------- */
+.goal-streak { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line-2); font-size: 13px; font-weight: 700; }
+.goal-streak .gs-done { color: var(--sold); }
+
+/* ---------- price suggestions ---------- */
+.sugg { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; margin-bottom: 10px; background: color-mix(in srgb, var(--gold) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); }
+.sugg.flat { margin: 0; background: none; border: 0; padding: 0; }
+.sugg.none { background: var(--surface-2); border-color: var(--line); }
+.sg-ico { font-size: 22px; } .sg-t { flex: 1; display: flex; flex-direction: column; gap: 2px; } .sg-t b { font-size: 15px; }
+
+/* ---------- what's new ---------- */
+.wn { display: flex; flex-direction: column; gap: 18px; max-height: 62vh; overflow: auto; }
+.wn-h { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--gold); padding-bottom: 6px; margin-bottom: 10px; }
+.wn-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.wn-it { display: flex; gap: 12px; padding: 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); animation: ck-pop .35s var(--ease) both; }
+.wn-it:nth-child(2) { animation-delay: .05s; } .wn-it:nth-child(3) { animation-delay: .1s; } .wn-it:nth-child(4) { animation-delay: .15s; } .wn-it:nth-child(5) { animation-delay: .2s; } .wn-it:nth-child(6) { animation-delay: .25s; }
+.wn-ic { font-size: 24px; } .wn-it b { font-size: 14px; } .wn-it p { margin: 2px 0 0; font-size: 13px; color: var(--text-2); }
+.wn-rel:not(:first-child) { opacity: .85; }
