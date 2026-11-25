@@ -90,7 +90,7 @@
           ['🙈', 'Turn it off', `Settings → Business → <b>Voice typing buttons on this device</b>. It’s per device — your setting doesn’t change the other person’s. ${go('settings', '#setVoice')}`]
         ] },
         { t: 'cards', items: [
-          ['🤖', 'Android (Chrome)', 'Works in Chrome and in the installed Thriftaholics app. Speech is turned into text by Google’s speech service, so you need an internet connection.', ''],
+          ['🤖', 'Android (Chrome)', 'Works in Chrome and in the installed Thriftaholics app. Speech is turned into text by Google’s speech service, so you need an internet connection. <b>Samsung phones:</b> set <b>Google</b> as the voice input service first (see the questions at the end of this guide).', ''],
           ['🍎', 'iPhone (Safari)', 'Works when the app is open in <b>Safari</b>; needs <b>Siri &amp; Dictation</b> turned on (Settings → Siri). Apple doesn’t yet allow this microphone inside apps added to the Home Screen, so there the app hides its 🎤 — use the keyboard’s 🎤 instead (below).', '']
         ] },
         { t: 'steps', h: 'Always works: the keyboard microphone', items: [
@@ -490,6 +490,8 @@
           ['A buyer bought three items together. How do I record it?', 'Select the three items → <b>Mark sold…</b> → <b>One order (bundle)</b>. Enter the order total; the app splits it between the items.'],
           ['Where did my photo go after I edited it?', 'It replaced the original. If you want both, add the photo again before editing one copy.'],
           ['There’s no 🎤 in the boxes on my iPhone.', 'In the Home Screen app, Apple doesn’t let web apps use the microphone for dictation yet — use the 🎤 on your keyboard instead, which works everywhere. In Safari, make sure Siri &amp; Dictation is on.'],
+          ['I tap the 🎤 and speak, but no words appear (Android / Samsung).', 'Your phone is probably using its own speech service instead of Google’s, which Chrome needs. On a Samsung phone: Settings → General management → Language (or Languages and input) → <b>Text-to-speech / Voice input</b> → choose <b>Google</b> as the speech recognition (voice input) service. On other Android phones: Settings → System → Languages → <b>Voice input</b> → Google. Also allow the microphone for the site and stay online — Chrome sends the audio to Google to turn it into text.'],
+          ['iPhone: how do I turn on voice typing?', 'Turn on <b>Siri &amp; Dictation</b>: Settings → <b>Siri</b> (or Siri &amp; Search) → turn on Siri, and Settings → General → Keyboard → turn on <b>Enable Dictation</b>. In Safari the app’s 🎤 then works; in the Home Screen app, use the 🎤 key on the keyboard.'],
           ['The microphone says it’s blocked.', 'You tapped “Don’t allow” once. Android Chrome: tap the icon left of the address → Permissions → Microphone → Allow. iPhone Safari: Settings → Apps → Safari → Microphone → Allow (or aA in the address bar → Website Settings).'],
           ['Press and hold doesn’t read anything.', 'Check Settings → Business → Read aloud is ticked, the volume is up, and (iPhone) the phone isn’t on silent. Hold still for about half a second — moving your finger counts as scrolling.'],
           ['How do I replay the tour?', 'Guide tab → <b>▶ Take the 60-second tour</b>, or search “tour” with Ctrl+K.'],
