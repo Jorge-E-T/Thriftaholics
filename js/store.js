@@ -198,11 +198,13 @@
       const stores = ['items', 'expenses', 'vault', ...(photos ? ['thumbs', 'photos'] : [])];
       const keepRecovery = await get('vault', 'recoveryCode'); // never drop recovery data on restore/sync
       const keepAnswers = await get('vault', 'questionAnswers');
+      const keepEmail = await get('vault', 'emailResetCode');
       const d = await openDB();
       const t = d.transaction(stores, 'readwrite');
       stores.forEach((s) => t.objectStore(s).clear());
       if (keepRecovery) t.objectStore('vault').put(keepRecovery);
       if (keepAnswers) t.objectStore('vault').put(keepAnswers);
+      if (keepEmail) t.objectStore('vault').put(keepEmail);
       encItems.forEach((e) => t.objectStore('items').put(e));
       encExp.forEach((e) => t.objectStore('expenses').put(e));
       encVault.forEach((e) => t.objectStore('vault').put(e));
@@ -283,6 +285,36 @@
     async refreshRecovery(password) {
       const code = await Store.getRecoveryCode().catch(() => null); if (code) await Store.setupRecovery(password, code);
       const qa = await Store.getQuestionAnswers().catch(() => null); if (qa) await Store.setupQuestions(password, qa.questions, qa.answers, true);
+      const er = await get('meta', 'emailReset'); const ec = er ? await Store.getEmailResetCode().catch(() => null) : null;
+      if (er && ec) await Store.setupEmailReset(password, ec, er);
+    },
+
+    /* ---------- reset by email ----------
+       A random reset code locks a copy of the password on this device. The code
+       itself is kept by the Gmail script in Andy's Google account (and, encrypted,
+       in this device's vault so it survives password changes). When the password
+       is forgotten, the script emails the code to the account owner; typing it in
+       unlocks the copy. The device token below can only ask for that email. */
+    async setupEmailReset(password, code, info) {
+      requireKey();
+      const salt = rand(16);
+      const k = await deriveKey(Store.normCode(code), salt);
+      const escrow = await encryptWith(k, password);
+      const rec = { k: 'emailReset', salt, iterations: ITERATIONS, escrow, deviceId: info.deviceId, token: info.token, url: info.url, name: info.name || '', to: info.to || '', created: info.created || Date.now() };
+      const d = await openDB();
+      const t = d.transaction('meta', 'readwrite');
+      t.objectStore('meta').put(rec);
+      await txDone(t);
+      await Store.putVault('emailResetCode', code);
+    },
+    async getEmailReset() { const r = await get('meta', 'emailReset'); if (!r) return null; const { escrow, salt, ...pub } = r; void escrow; void salt; return pub; },
+    async getEmailResetCode() { const k = requireKey(); const r = await get('vault', 'emailResetCode'); return r ? decryptWith(k, r) : null; },
+    async clearEmailReset() { const d = await openDB(); const t = d.transaction('meta', 'readwrite'); t.objectStore('meta').delete('emailReset'); await txDone(t); if (key) await Store.putVault('emailResetCode', null); },
+    /** Returns the password locked by the emailed code, or null if the code is wrong. */
+    async recoverWithEmailCode(code) {
+      const rec = await get('meta', 'emailReset');
+      if (!rec || Store.normCode(code).length < 16) return null;
+      try { const k = await deriveKey(Store.normCode(code), rec.salt, rec.iterations); return await decryptWith(k, rec.escrow); } catch (_) { return null; }
     },
 
     /* ---------- security questions (answer any 2 of 3 to reset the password) ----------

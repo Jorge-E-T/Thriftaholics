@@ -111,7 +111,7 @@
       T.commit('items', [{ id: it.id, after }], { label: 'recorded a refund' });
       U.toast('Refund recorded — profit updated', 'ok');
     } else {
-      Object.assign(after, { status: kind() === 'return' ? 'available' : 'lost', dateSold: '', totalAfterFees: null, orderId: '', orderSize: 0, refunds: [], disposedDate: kind() === 'lost' ? date : '',
+      Object.assign(after, { status: kind() === 'return' ? 'available' : 'lost', dateSold: '', totalAfterFees: null, orderId: '', orderSize: 0, refunds: [], buyer: null, invoice: null, disposedDate: kind() === 'lost' ? date : '',
         notes: [after.notes, `${kind() === 'return' ? 'Returned' : 'Refunded (not returned)'} ${U.fmtDate(date)} — was sold on ${T.platformLabel(after.platform) || 'a site'} for ${U.money(after.sellingPrice)}${note ? ': ' + note : ''}`].filter(Boolean).join('\n') });
       if (kind() === 'return') { after.platform = ''; after.listings = (after.listings || []).map((l) => (l.status === 'sold' ? { ...l, status: 'delisted' } : l)); }
       T.commit('items', [{ id: it.id, after }], { label: kind() === 'return' ? 'item returned' : 'refunded, not returned' });

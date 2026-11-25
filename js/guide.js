@@ -30,7 +30,7 @@
         { t: 'grid', h: 'Locking and unlocking', items: [
           ['🔒', 'Lock now', 'The padlock in the top bar locks the app instantly — handy on a shared computer.'],
           ['⏱️', 'Auto-lock', 'Settings → Security → <b>Auto-lock after inactivity</b>. 0 means never.'],
-          ['💡', 'Forgot it?', 'On the lock screen, click <b>Forgot password?</b> and answer your reset questions. Your hint appears after a wrong try.'],
+          ['💡', 'Forgot it?', 'On the lock screen, click <b>Forgot password?</b> and answer your reset questions — or, once the Gmail script is set up, tap <b>✉️ Email me a reset code</b>. Your hint appears after a wrong try.'],
           ['🧭', 'Each browser is separate', 'Chrome, Safari and each phone keep their own copy. Use a backup or cloud sync to move data between them.']
         ] },
         { t: 'steps', h: 'Install it like a phone app', items: [
@@ -161,6 +161,8 @@
           ['Click any cell to edit it', `${k('Tab')} moves to the next cell, ${k('Enter')} saves, ${k('Esc')} cancels.`],
           ['Undo anything', `The <b>Undo</b> button in the bottom-left corner is always there — it shows what it will undo, like “edit price”. <b>Redo</b> next to it puts it back. Keyboard: ${k('Ctrl')} + ${k('Z')} to undo, ${k('Ctrl')} + ${k('Shift')} + ${k('Z')} (or ${k('Ctrl')} + ${k('Y')}) to redo — use ${k('⌘')} on a Mac.`],
           ['Edit every field at once', 'The ✎ button on a row opens the full editor: brand, size, color, condition, measurements, weight, location, source, purchase date, lowest acceptable price, listings and notes.'],
+          ['Active items first', 'Items you still have always come first, in SKU order. Sold and donated items follow below a gold line, newest sale first. Clicking a column header sorts within each group.'],
+          ['🙈 Hide sold', 'The <b>🙈 Hide sold</b> button hides sold and donated items so you see only your active inventory. Click <b>👁 Show sold</b> to bring them back. Each phone or computer remembers its own choice.'],
           ['Sort', 'Click a column header. <b>Shift</b> + click adds a second sort column.'],
           ['Get a price suggestion', 'In the item editor, fill in the brand and/or category: <b>💡 Suggested price</b> appears, based on what similar items <b>you</b> sold (same brand and category, then brand, then category and size, then category). It shows the price range, how fast they usually sold and the sell-through rate. <b>Use $X</b> fills it in. It needs at least 3 similar sales; it also appears in each unsold item’s details.']
         ] },
@@ -264,6 +266,44 @@
           ['📦', 'Ship it', 'ⓘ opens the item’s details with <b>Packing slip</b> and <b>Thank-you card</b> buttons.']
         ] },
         { t: 'note', kind: 'tip', html: 'Profit = <b>total after fees − item cost − your shipping</b>. Keep the purchase price filled in for accurate profit and taxes.' }
+      ]
+    },
+    {
+      id: 'invoices', icon: '🧾', color: '#c9952e', title: 'Invoices for buyers',
+      lead: 'A branded PDF invoice for any sale — emailed from your own Gmail in one tap, or shared from your phone.',
+      blocks: [
+        { t: 'steps', h: 'Send an invoice', items: [
+          ['Open the sold item', 'Orders & Sales → ⓘ on the sale (or click the sold item in Inventory) → <b>🧾 Invoice</b>. Right after you record a sale, a <b>“Send the buyer an invoice?”</b> button also pops up for a few seconds.'],
+          ['Fill in the buyer', 'Name and email (address is optional). Bundles are handled for you: if the item was sold in a bundle, the invoice lists every item in that order.'],
+          ['Check the numbers', 'Invoice number (automatic: INV-2026-0001, 0002…), date, how they paid, shipping the buyer paid, any discount and sales tax. The total updates as you type.'],
+          ['Send it', '<b>✉️ Email invoice</b> sends it from your Gmail with the PDF attached (after the one-time setup below). <b>📤 Send / share PDF</b> works with no setup. <b>⬇ Download PDF</b> just saves it.']
+        ] },
+        { t: 'grid', h: 'Two ways to send', items: [
+          ['✉️', 'One-tap email (Gmail)', 'The buyer gets a branded email from <b>your</b> Gmail address with the PDF invoice attached; replies come back to you. Free — Google allows about 100 emails a day on a regular Gmail account. Needs the one-time setup below.'],
+          ['📤', 'Send / share (always works)', 'On a phone it opens the share sheet with the PDF attached — pick Gmail, Outlook, Messages or WhatsApp. The buyer’s email is copied for you: paste it into the <b>To</b> line. On a computer it downloads the PDF and opens a pre-written email; attach the PDF from Downloads.'],
+          ['🔁', 'Sent before?', 'The item’s details show the invoice number and when and how it was sent. Opening 🧾 Invoice again keeps the same number, so you can resend it.'],
+          ['✏️', 'Your wording', 'Settings → Email invoices: subject, message (with {buyer}, {invoice}, {total} and more), number prefix, a copy to yourself, and whether to offer an invoice after each sale.']
+        ] },
+        { t: 'steps', h: 'One-time setup: one-tap email from Gmail (about 10 minutes, on a computer)', items: [
+          ['Copy the script', 'In Thriftaholics: <b>Settings → Email invoices → 📋 Copy the Gmail script</b>. It already contains your private secret key. (If you set this up before installing, use the script file you were given instead.)'],
+          ['Create the project', 'Sign in to the Gmail account the invoices should come <b>from</b>, then go to <b>script.google.com</b> → <b>New project</b>. Click “Untitled project” at the top and name it <b>Thriftaholics Invoices</b>.'],
+          ['Paste and save', 'In <b>Code.gs</b>, select everything and delete it, paste the script, then click the 💾 <b>Save</b> icon.'],
+          ['Give permission', 'In the toolbar, choose the function <b>authorize</b> and click <b>▶ Run</b> → <b>Review permissions</b> → pick your Google account. Google warns “Google hasn’t verified this app” because it is your own private script: click <b>Advanced</b> → <b>Go to Thriftaholics Invoices (unsafe)</b> → <b>Allow</b>. The log should say “Ready. Sending as …”.'],
+          ['Deploy it as a web app', 'Click <b>Deploy → New deployment</b>. Click the ⚙️ gear next to “Select type” → <b>Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, then <b>Deploy</b>. If asked, authorize again.'],
+          ['Copy the link', 'Copy the <b>Web app URL</b> — it starts with https://script.google.com/macros/s/ and ends with <b>/exec</b>.'],
+          ['Connect Thriftaholics', '<b>Settings → Email invoices</b>: paste the link into <b>Gmail script link</b>, make sure the <b>Secret key</b> matches the one in the script, enter <b>your email</b>, then tap <b>✅ Test the connection</b>. Say yes to the sample invoice to see exactly what buyers receive.']
+        ] },
+        { t: 'note', kind: 'good', html: '<b>Is it safe?</b> The script lives in your own Google account and only sends email — it can’t read your inbox. It refuses any request without your secret key, and the link and key are stored encrypted in Thriftaholics (never in the public GitHub files). “Anyone” access only means the app can reach it; without the key nothing is sent.' },
+        { t: 'note', kind: 'tip', html: '<b>Set it up once for both of you.</b> The link and key sync to the other person’s devices, so Andy can send invoices too — they come from the Gmail account that ran the setup. Want hers to come from her own Gmail? She repeats the setup in her account and pastes <b>her</b> link and key on her phone (that replaces the shared ones for both, so pick one).' },
+        { t: 'faq', items: [
+          ['The test says “Google answered with a web page”', 'The deployment’s <b>Who has access</b> isn’t set to <b>Anyone</b>, or the link is the editor link. Deploy → Manage deployments → ✏️ → Who has access: Anyone → Deploy, and copy the <b>/exec</b> Web app URL.'],
+          ['It says the secret key does not match', 'The key in Settings must be the same as the line <code>const SECRET = \'…\'</code> in the script. Either fix one of them, or use <b>📋 Copy the Gmail script</b> again and paste it over the old code (then deploy a new version, below).'],
+          ['I changed the script — how do I update it?', 'After saving: <b>Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy</b>. The link stays the same.'],
+          ['“Failed to fetch” or “Load failed”', 'Check your internet connection and that the link is complete. If the script was just deployed, wait a minute and try again.'],
+          ['How many can I send?', 'About 100 recipients a day on a regular Gmail account (a copy to yourself counts as one). After a successful send the app warns you when fewer than 10 are left.'],
+          ['The buyer says it went to spam', 'Ask them to mark it “Not spam” — after that, your emails land in their inbox. Emails sent from a real Gmail account rarely end up in spam.'],
+          ['Can I send without the Gmail setup?', 'Yes — <b>📤 Send / share PDF</b> always works, and <b>⬇ Download PDF</b> saves the invoice to attach anywhere.']
+        ] }
       ]
     },
     {
@@ -459,7 +499,14 @@
           ['↩️', 'Undo & redo', `The Undo / Redo buttons in the bottom-left corner work on every tab and remember your last 50 changes since you unlocked the app. ${k('Ctrl')} + ${k('Z')} works too.`],
           ['🕘', 'Revert', 'Activity history can roll back any single change.'],
           ['🧨', 'Erase', 'Settings → Danger zone erases everything in this browser — and, if you choose, the cloud copy too. Back up first!']
-        ] }
+        ] },
+        { t: 'steps', h: '🔑 Forgot the password? Reset it by email', items: [
+          ['Turn it on (once)', 'It turns on by itself on each phone or computer the next time it unlocks after the Gmail script is set up (Settings → Email invoices). Settings → Email invoices → <b>Password reset by email</b> shows “✓ On for this device”.'],
+          ['On the lock screen', 'Tap <b>Forgot password?</b> → <b>✉️ Email me a reset code</b>. The code goes to the Gmail account that runs the script (Andy’s), never anywhere else.'],
+          ['Enter the code', 'Type the code from the email (or open the email’s button <b>on that same device</b>), tap <b>Continue</b> and choose a new password.'],
+          ['A fresh code', 'After a reset, the device sets up a new code by itself, so an old email can’t be used again.']
+        ] },
+        { t: 'note', kind: 'good', html: 'Each device has its own code. A reset needs both the device <b>and</b> the code from the email, so keep the Gmail account safe with 2-Step Verification. Changing the Gmail password doesn’t break it. Reset questions and your hint keep working, even offline.' }
       ]
     },
     {
@@ -488,7 +535,7 @@
       blocks: [
         { t: 'keys' },
         { t: 'faq', items: [
-          ['I forgot my app password.', 'On the lock screen click <b>Forgot password?</b> and answer your reset questions to set a new one. Your hint appears after a wrong try. Without the questions, the only way back in is erasing and restoring a backup — so set them up now.'],
+          ['I forgot my app password.', 'On the lock screen click <b>Forgot password?</b>. Tap <b>✉️ Email me a reset code</b> (if reset by email is on) and type the code from the email, or answer your reset questions, to set a new one. Your hint appears after a wrong try. Without the questions, the only way back in is erasing and restoring a backup — so set them up now.'],
           ['My data isn’t on my other device.', 'Each browser keeps its own copy. Turn on cloud sync on both devices with the same app password, or make a Backup here and Restore it there.'],
           ['The sync pill says something other than “Up to date”.', '<i>Offline</i>: no internet — changes wait. <i>Different app password in the cloud</i>: click Sync now and enter the password the cloud uses. Errors: sign out and back in, and check the e-mail is listed in the Firestore rules.'],
           ['Profit looks wrong on a sale.', 'Open the item and check <b>purchase price</b>, <b>total after fees</b> (what the site actually paid you) and <b>shipping cost</b> (only what you paid).'],
@@ -496,7 +543,7 @@
           ['Can the app post listings to Poshmark, Depop or Mercari by itself?', 'No — those marketplaces don’t allow outside apps to post for you. The Cross-list helper gets everything ready so each site takes about a minute: open, paste, publish, paste the link back.'],
           ['The “sell” page link opens the wrong page.', 'Sites move pages around. Open the site, go to its “sell an item” page yourself, copy that address, and paste it into Platforms → Edit → Cross-listing helper → “Sell an item” page.'],
           ['A title is cut off.', 'It was trimmed to that site’s title limit. Edit it in the helper, or change the limit in Platforms → Edit if the site allows more.'],
-          ['Can two items have the same SKU?', 'Yes. Every item has its own hidden ID, so sales, profit, photos and sync keep them apart. The app just helps you notice: the SKU shows a small <b>×2</b> badge, the editor says which other item uses it, and Inventory → <b>⚠ Duplicate SKUs</b> (in the age filter) lists them all. QR labels open the exact item, and typing or scanning a shared SKU asks which one you mean.'],
+          ['Can two items have the same SKU?', 'Yes. Every item has its own hidden ID, so sales, profit, photos and sync keep them apart. Reusing a SKU after an item sells is fine — only items still in stock count as sharing one. When two in-stock items share a SKU, the app helps you notice: the SKU shows a small <b>×2</b> badge, the editor says which other item uses it, and Inventory → <b>⚠ Duplicate SKUs</b> (in the age filter) lists them all. QR labels open the exact item, and typing or scanning a shared SKU asks which one you mean.'],
           ['I made a mistake. How do I take it back?', 'Click <b>Undo</b> in the bottom-left corner (or press Ctrl/⌘ + Z) — as many times as you need, up to 50 steps. Went one too far? <b>Redo</b>. Undo remembers what <b>you</b> did on <b>this device</b> since you unlocked the app; for older changes, or something someone else did, use <b>Revert</b> in the activity history (Dashboard → Recent activity → View all).'],
           ['A buyer bought three items together. How do I record it?', 'Select the three items → <b>Mark sold…</b> → <b>One order (bundle)</b>. Enter the order total; the app splits it between the items.'],
           ['Where did my photo go after I edited it?', 'It replaced the original. If you want both, add the photo again before editing one copy.'],

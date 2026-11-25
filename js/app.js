@@ -61,7 +61,7 @@
     ],
     routineDone: {},
     milestones: {},
-    invSort: [{ key: 'datePosted', dir: 'desc' }],
+    invSort: [{ key: 'sku', dir: 'asc' }],
     ordSort: [{ key: 'dateSold', dir: 'desc' }],
     expSort: [{ key: 'date', dir: 'desc' }]
   };
@@ -369,14 +369,16 @@
     }
     function sorted(rows) {
       const sort = o.getSort();
-      if (!sort.length) return rows;
+      // o.group: rows are kept in groups (e.g. active items before sold ones), whatever the column sort
+      if (!sort.length && !o.group && !o.defaultSort) return rows;
       const cols = sort.map((s) => ({ c: o.columns.find((c) => c.key === s.key), d: s.dir === 'desc' ? -1 : 1 })).filter((x) => x.c);
       return [...rows].sort((a, b) => {
+        if (o.group) { const g = o.group(a) - o.group(b); if (g) return g; }
         for (const { c, d } of cols) {
           const r = cmp(a, b, c);
           if (r !== 0) { const ea = val(c, a), eb = val(c, b); const empty = (v) => v === null || v === undefined || v === ''; return (empty(ea) || empty(eb)) ? r : r * d; }
         }
-        return 0;
+        return o.defaultSort ? o.defaultSort(a, b) : 0;
       });
     }
 
@@ -445,7 +447,7 @@
         const span = visibleCols().length + (o.selectable ? 1 : 0) + (photoOn() ? 1 : 0) + (o.actions ? 1 : 0);
         tbody.innerHTML = `<tr><td colspan="${span}"><div class="empty">${o.emptyText || 'No rows'}</div></td></tr>`;
       } else {
-        tbody.innerHTML = rowsCache.map((r) => `<tr data-id="${esc(r.id)}" class="${rowClass(r)}">${rowInner(r)}</tr>`).join('');
+        tbody.innerHTML = rowsCache.map((r, i) => `<tr data-id="${esc(r.id)}" class="${rowClass(r)}${o.group && i > 0 && o.group(r) !== o.group(rowsCache[i - 1]) ? ' grp-start' : ''}">${rowInner(r)}</tr>`).join('');
       }
       tfoot.innerHTML = footHTML(rowsCache);
       applySticky();
@@ -671,6 +673,8 @@
       offers: Array.isArray(raw.offers) ? raw.offers.filter((o) => o && o.amount != null).map((o) => ({ id: o.id || U.uid(), date: U.toISO(o.date || '') || U.todayISO(), platform: String(o.platform || '').toLowerCase(), amount: U.num(o.amount) ?? 0, status: o.status || 'pending', counter: U.num(o.counter), note: String(o.note || '') })) : [],
       refunds: Array.isArray(raw.refunds) ? raw.refunds.filter(Boolean).map((r) => ({ id: r.id || U.uid(), date: U.toISO(r.date || '') || U.todayISO(), amount: U.num(r.amount) ?? 0, returnShip: U.num(r.returnShip) ?? 0, note: String(r.note || '') })) : [],
       orderId: String(raw.orderId || ''), orderSize: +raw.orderSize || 0,
+      buyer: raw.buyer && typeof raw.buyer === 'object' ? { name: String(raw.buyer.name || ''), email: String(raw.buyer.email || ''), address: String(raw.buyer.address || '') } : null,
+      invoice: raw.invoice && typeof raw.invoice === 'object' && raw.invoice.no ? raw.invoice : null,
       haulId: String(raw.haulId || ''), pkg: String(raw.pkg || ''),
       createdAt: raw.createdAt || Date.now(), updatedAt: raw.updatedAt || Date.now(), editedBy: String(raw.editedBy || '')
     });
@@ -763,7 +767,14 @@
      ========================================================= */
   /* ---- shared SKUs ---- */
   const skuKey = (s) => String(s ?? '').trim().toLowerCase();
-  const sameSku = (sku, exceptId) => { const k = skuKey(sku); return k ? state.items.filter((i) => i.id !== exceptId && skuKey(i.sku) === k) : []; };
+  // SKUs are reused once an item sells, so only items still in stock count as sharing one
+  const skuActive = (i) => !Calc.isSold(i) && (i.status || '').toLowerCase() !== 'donated';
+  const sameSku = (sku, exceptId) => {
+    const k = skuKey(sku); if (!k) return [];
+    const me = exceptId ? state.items.find((i) => i.id === exceptId) : null;
+    if (me && !skuActive(me)) return [];
+    return state.items.filter((i) => i.id !== exceptId && skuKey(i.sku) === k && skuActive(i));
+  };
   const skuDupNote = (sku, exceptId) => { const o = sameSku(sku, exceptId); return o.length ? `SKU ${sku} is also used by ${o.slice(0, 2).map((x) => `“${x.name || 'an item'}”`).join(', ')}${o.length > 2 ? ` and ${o.length - 2} more` : ''}. That’s allowed — each item stays separate.` : ''; };
   const INV_COLS = [
     { key: 'name', label: 'Item Name', type: 'text', width: 230 },
@@ -794,10 +805,29 @@
     { key: 'notes', label: 'Notes', type: 'text', width: 160 }
   ];
 
+  /* active items first (by SKU), then donated, then sold (newest sale first) */
+  const invGroup = (it) => (Calc.isSold(it) ? 2 : (it.status || '').toLowerCase() === 'donated' ? 1 : 0);
+  const skuCmp = (a, b) => {
+    const ea = !String(a.sku || '').trim(), eb = !String(b.sku || '').trim();
+    if (ea !== eb) return ea ? 1 : -1;
+    return String(a.sku || '').localeCompare(String(b.sku || ''), undefined, { numeric: true, sensitivity: 'base' }) || (a.name || '').localeCompare(b.name || '');
+  };
+  const invDefaultSort = (a, b) => (invGroup(a) === 2 && invGroup(b) === 2 ? (b.dateSold || '').localeCompare(a.dateSold || '') || skuCmp(a, b) : skuCmp(a, b));
+  /** “Hide sold” is on, and no status filter asks for sold items */
+  const hidingSold = () => !!S().invHideSold && !$('#fStatus').value && $('#fAge').value !== 'sold';
+  function paintHideSold() {
+    const b = $('#btnHideSold'); if (!b) return;
+    const on = !!S().invHideSold;
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.innerHTML = on ? '👁 Show sold' : '🙈 Hide sold';
+    b.title = on ? 'Sold and donated items are hidden — click to show everything (active items stay on top)' : 'Hide sold and donated items to see only your active inventory';
+  }
   function invFiltered() {
     const q = $('#invSearch').value.trim().toLowerCase();
     const fs = $('#fStatus').value, fc = $('#fCategory').value, fp = $('#fPlatform').value, fa = $('#fAge').value;
+    const hide = hidingSold();
     return state.items.filter((it) => {
+      if (hide && invGroup(it) > 0) return false;
       if (fs && (it.status || '').toLowerCase() !== fs.toLowerCase()) return false;
       if (fc && (it.category || '').toLowerCase() !== fc.toLowerCase()) return false;
       if (fp && ![it.platform, ...(it.listings || []).map((l) => l.platform)].some((x) => (x || '').toLowerCase() === fp.toLowerCase())) return false;
@@ -818,9 +848,12 @@
       photo: photoConfig,
       sticky: 'name',
       rows: invFiltered,
+      group: invGroup,
+      defaultSort: invDefaultSort,
       find: findItem,
       hidden: () => S().hiddenCols || [],
-      getSort: () => S().invSort || [],
+      // once per device: switch to SKU order (active items first is built in)
+      getSort: () => { if (!S().invSortSku) { S().invSort = [{ key: 'sku', dir: 'asc' }]; S().invSortSku = 1; } return S().invSort || []; },
       setSort: (s) => { S().invSort = s; saveSettings(); },
       rowClass: (r) => 'r-' + Calc.ageClass(r, S()),
       selectable: true,
@@ -846,13 +879,16 @@
       ],
       afterRender: (rows) => {
         const tot = state.items.length;
-        $('#invFootNote').textContent = `Showing ${rows.length} of ${tot} items · Ctrl/⌘+Z to undo · Tab moves to next cell`;
+        const hid = hidingSold() ? state.items.filter((i) => invGroup(i) > 0).length : 0;
+        $('#invFootNote').textContent = `Showing ${rows.length} of ${tot} items${hid ? ` · ${hid} sold/donated hidden` : ''} · active items first, by SKU · Ctrl/⌘+Z to undo`;
       }
     });
 
     const rerender = () => invGrid.render();
     $('#invSearch').addEventListener('input', U.debounce(rerender, 120));
     ['#fStatus', '#fCategory', '#fPlatform', '#fAge'].forEach((s) => $(s).addEventListener('change', rerender));
+    $('#btnHideSold').onclick = () => { S().invHideSold = !S().invHideSold; saveSettings(); paintHideSold(); rerender(); };
+    paintHideSold();
     $('#btnClearFilters').onclick = () => { $('#invSearch').value = ''; ['#fStatus', '#fCategory', '#fPlatform', '#fAge'].forEach((s) => ($(s).value = '')); rerender(); };
     $('#btnAddItem').onclick = () => itemDialog(null);
     $('#btnColumns').onclick = (e) => columnsPopover(e.currentTarget);
@@ -868,7 +904,7 @@
       if (a === 'clear') { state.selection.clear(); invGrid.render(); updateBulkBar(); return; }
       if (!sel.length) return;
       if (a === 'sold') markSoldDialog(sel.filter((x) => !Calc.isSold(x)));
-      if (a === 'available') { commit('items', sel.map((it) => ({ id: it.id, after: { ...U.clone(it), status: 'available', dateSold: '', platform: Calc.isSold(it) ? '' : it.platform, totalAfterFees: Calc.isSold(it) ? null : it.totalAfterFees } })), { label: 'mark available' }); renderAll(); }
+      if (a === 'available') { commit('items', sel.map((it) => ({ id: it.id, after: { ...U.clone(it), status: 'available', dateSold: '', buyer: Calc.isSold(it) ? null : it.buyer, invoice: Calc.isSold(it) ? null : it.invoice, platform: Calc.isSold(it) ? '' : it.platform, totalAfterFees: Calc.isSold(it) ? null : it.totalAfterFees } })), { label: 'mark available' }); renderAll(); }
       if (a === 'category') {
         const v = await U.prompt('Set category', `Category for ${sel.length} item(s)`, { list: allCats() });
         if (v) { const c = v.trim().toLowerCase(); commit('items', sel.map((it) => ({ id: it.id, after: { ...U.clone(it), category: c } })), { label: 'set category' }); addListValue('categories', c); renderAll(); }
@@ -898,7 +934,7 @@
   }
   function duplicateItems(list) {
     let sku = parseInt(nextSku(), 10);
-    const copies = list.map((it) => ({ ...U.clone(it), id: U.uid(), sku: String(sku++), status: 'available', dateSold: '', platform: '', orderId: '', orderSize: 0, refunds: [], totalAfterFees: null, listings: [], datePosted: U.todayISO(), name: it.name + ' (copy)', createdAt: Date.now() }));
+    const copies = list.map((it) => ({ ...U.clone(it), id: U.uid(), sku: String(sku++), status: 'available', dateSold: '', platform: '', orderId: '', orderSize: 0, refunds: [], buyer: null, invoice: null, totalAfterFees: null, listings: [], datePosted: U.todayISO(), name: it.name + ' (copy)', createdAt: Date.now() }));
     commit('items', copies.map((c) => ({ id: c.id, after: c })), { label: 'duplicate' });
     copies.forEach((c, i) => {
       const src = list[i].id;
@@ -1135,7 +1171,7 @@
         ${lst.length ? `<div class="sh-listed">${lst.map((l) => platformTag(l.platform, l.url, l.status)).join('')}</div>` : ''}
         <div class="sh-actions">
           <button class="btn btn-primary btn-sm" data-sh="edit">${ICON.edit} Edit all fields</button>
-          ${sold ? `<button class="btn btn-sm" data-sh="slip">Packing slip</button><button class="btn btn-sm" data-sh="thanks">Thank-you card</button>` : `<button class="btn btn-gold btn-sm" data-sh="sold">${ICON.sold} Mark sold</button>`}
+          ${sold ? `<button class="btn btn-sm btn-gold" data-sh="invoice">🧾 Invoice</button><button class="btn btn-sm" data-sh="slip">Packing slip</button><button class="btn btn-sm" data-sh="thanks">Thank-you card</button>` : `<button class="btn btn-gold btn-sm" data-sh="sold">${ICON.sold} Mark sold</button>`}
           ${sold ? '' : `<button class="btn btn-sm btn-xl" data-sh="xlist">${ICON.xlist} Cross-list</button>`}
           <button class="btn btn-sm" data-sh="photos">📷 Photos${(it.photos || []).length ? ' (' + ((it.photos || []).length + (state.thumbs[it.id] ? 1 : 0)) + ')' : ''}</button>
           ${sold ? `<button class="btn btn-sm" data-sh="refund">Refund / return</button>` : ''}
@@ -2643,7 +2679,7 @@
         else { if (puts.length) await Store.putMany(kind, puts); if (k.del.length) await Store.deleteMany(kind, k.del.map((d) => d.id)); }
       }
       await Store.putVault('tombstones', t);
-      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
+      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
       if ('logo' in a) { state.logo = a.logo || null; await Store.putVault('logo', state.logo); }
       for (const p of a.photos.put) { await Store.putPhoto(p.id, { thumb: p.thumb, full: p.thumb, w: p.w, h: p.h }); state.thumbs[p.id] = { thumb: p.thumb, w: p.w, h: p.h }; }
       if (a.photos.del.length) { a.photos.del.forEach((id) => delete state.thumbs[id]); await Store.deletePhotos(a.photos.del); }
@@ -2729,7 +2765,7 @@
         { icon: ICON.open, title: 'Details, packing slip & thank-you card', fn: (r) => openItemSheet(r) },
         { icon: ICON.edit, title: 'Edit all fields', fn: (r) => itemDialog(r) },
         { icon: ICON.refund, title: 'Refund or return', fn: (r) => window.Ext && Ext.refundDialog && Ext.refundDialog(r) },
-        { icon: ICON.back, title: 'Return to inventory (undo sale)', fn: (r) => { commit('items', [{ id: r.id, after: { ...U.clone(r), status: 'available', dateSold: '', platform: '', totalAfterFees: null, listings: (r.listings || []).map((l) => (l.status === 'sold' ? { ...l, status: 'active', statusDate: U.todayISO() } : l)) } }], { label: 'return to inventory' }); renderAll(); U.toast('Returned to inventory', ''); } },
+        { icon: ICON.back, title: 'Return to inventory (undo sale)', fn: (r) => { commit('items', [{ id: r.id, after: { ...U.clone(r), status: 'available', dateSold: '', platform: '', buyer: null, invoice: null, totalAfterFees: null, listings: (r.listings || []).map((l) => (l.status === 'sold' ? { ...l, status: 'active', statusDate: U.todayISO() } : l)) } }], { label: 'return to inventory' }); renderAll(); U.toast('Returned to inventory', ''); } },
         { icon: ICON.del, title: 'Delete', cls: 'del', fn: (r) => deleteItems([r]) }
       ],
       afterRender: renderOrderKpis
@@ -3247,7 +3283,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.25b';
+  const APP_VERSION = '2026.11.25e';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3615,8 +3651,10 @@
       state.meta.hasRecovery = !!(await Store.getQuestions());
       renderBanner();
       setTimeout(handleHash, 300);
-      if (recoveredFrom) { const old = recoveredFrom; recoveredFrom = null; if (window.Sync) Sync.passwordChanged(old, pw); U.toast('Password reset — you’re back in. Your questions still work if you forget again.', 'ok'); }
+      const viaEmail = recoveredVia === 'email'; recoveredVia = '';
+      if (recoveredFrom) { const old = recoveredFrom; recoveredFrom = null; if (window.Sync) Sync.passwordChanged(old, pw); U.toast(viaEmail ? 'Password reset — you’re back in. A fresh reset code is being set up for next time.' : 'Password reset — you’re back in. Your questions still work if you forget again.', 'ok'); }
       else if (window.Sync) Sync.unlocked(pw);
+      if (window.Ext && Ext.afterUnlock) Ext.afterUnlock(pw, { viaEmail });
       if (mode === 'setup') {
         const h = $('#lockHint').value.trim(); if (h) await Store.setHint(h);
         await setupQuestionsNow(pw, { title: 'One more thing: password reset questions' });
@@ -3629,6 +3667,14 @@
      FORGOT PASSWORD — hint + security questions (any 2 of 3)
      ========================================================= */
   let recoveredFrom = null; // old password, kept only until the app finishes unlocking after a reset
+  let recoveredVia = '';
+  // a reset link from the email: #reset=CODE opens "Forgot password" with the code filled in
+  function resetFromHash() {
+    const m = /^#reset=([A-Za-z0-9-]{16,60})$/.exec(location.hash); if (!m || Store.unlocked) return false;
+    history.replaceState(null, '', location.pathname + location.search);
+    forgotPassword(m[1]); return true;
+  }
+  window.addEventListener('hashchange', () => { resetFromHash(); });
   const QUESTION_CHOICES = [
     'What was the name of your first pet?', 'What city were you born in?', 'What was the make of your first car?',
     'What street did you grow up on?', 'What was the name of your elementary school?', 'What is your oldest sibling’s middle name?',
@@ -3668,27 +3714,56 @@
     U.toast('Saved — if you forget your password, answer two of these questions on the lock screen.', 'ok');
     return true;
   }
-  async function forgotPassword() {
+  async function forgotPassword(prefillCode) {
+    if (typeof prefillCode !== 'string') prefillCode = '';
     const questions = await Store.getQuestions().catch(() => null);
+    const er = await Store.getEmailReset().catch(() => null);
     const hasCode = !questions && (await Store.hasRecovery().catch(() => false)); // older versions used a recovery code
     const hint = await Store.getHint().catch(() => '');
     const body = document.createElement('div');
-    body.innerHTML = `${hint ? `<div class="hint-box">💡 Your hint: <b>${esc(hint)}</b><div class="muted small">Try again with the hint in mind — or answer your questions below.</div></div>` : ''}
+    const who = er ? (er.to ? er.to.replace(/^(.)(.*)(@.*)$/, (m0, a, b2, c) => a + '•'.repeat(Math.min(b2.length, 8)) + c) : 'the shop’s Gmail') : '';
+    body.innerHTML = `${hint ? `<div class="hint-box">💡 Your hint: <b>${esc(hint)}</b><div class="muted small">Try again with the hint in mind — or ${er ? 'use one of the ways below' : 'answer your questions below'}.</div></div>` : ''}
+      ${er ? `<div class="er-box" style="margin-top:${hint ? '14px' : '0'}"><b>✉️ Reset by email</b>
+        <p class="muted small">We’ll email a reset code to <b>${esc(who)}</b>${er.name ? ` for <b>${esc(er.name)}</b>` : ''}. Type it here — or open the email’s button on this device.</p>
+        <div class="er-row"><button type="button" class="btn btn-sm" data-er-send>✉️ Email me a reset code</button><span class="small" data-er-msg></span></div>
+        <label class="field"><span>Reset code from the email</span><input data-er-code autocomplete="one-time-code" spellcheck="false" style="font-family:var(--mono)" value="${esc(prefillCode)}" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"></label></div>
+        ${questions ? '<p class="muted small er-or">— or answer your questions —</p>' : ''}` : ''}
       ${questions ? `<p style="margin-top:${hint ? '14px' : '0'}">Answer <b>at least two</b> of your questions to set a new password.</p>
         ${questions.map((q, i) => `<label class="field"><span>${esc(q)}</span><input data-ans="${i}" autocomplete="off" spellcheck="false"></label>`).join('')}`
       : hasCode ? `<p>Enter the recovery code you saved earlier.</p><label class="field"><span>Recovery code</span><input data-code autocomplete="off" style="font-family:var(--mono)"></label>`
-      : `<p>${hint ? '' : 'No hint or reset questions were set up on this device, so the password can’t be reset here. '}If you’re still signed in on another device, make a backup there. As a last resort you can erase this device and restore a backup.</p>`}
+      : er ? '' : `<p>${hint ? '' : 'No hint or reset questions were set up on this device, so the password can’t be reset here. '}If you’re still signed in on another device, make a backup there. As a last resort you can erase this device and restore a backup.</p>`}
       <p class="lock-error" data-err></p>`;
-    const canReset = questions || hasCode;
+    const canReset = questions || hasCode || er;
+    if (er) {
+      body.querySelector('[data-er-send]').addEventListener('click', async (e) => {
+        const b = e.currentTarget, msg = body.querySelector('[data-er-msg]');
+        b.disabled = true; msg.className = 'small muted'; msg.textContent = 'Sending…';
+        try {
+          const r = await fetch(er.url, { method: 'POST', body: JSON.stringify({ action: 'reset-send', deviceId: er.deviceId, token: er.token }) });
+          let j = null; try { j = JSON.parse(await r.text()); } catch (_) { throw new Error('The Gmail script didn’t answer properly.'); }
+          if (!j.ok) throw new Error(j.error || 'Could not send.');
+          msg.className = 'small ok-text'; msg.textContent = `✓ Sent to ${who}. Check that inbox (and Spam) in a minute.`;
+          body.querySelector('[data-er-code]').focus();
+          setTimeout(() => { b.disabled = false; b.textContent = '✉️ Send it again'; }, 30000);
+        } catch (err2) { b.disabled = false; msg.className = 'small bad-text'; msg.textContent = (/fetch|network|load failed/i.test(String(err2.message)) ? 'No connection — check the internet and try again.' : err2.message); }
+      });
+    }
     const res = await U.modal({ title: 'Forgot password', body, buttons: [
       { label: 'Erase this device…', value: 'erase', cls: 'btn-ghost danger-text' },
       { label: canReset ? 'Cancel' : 'Back', value: null, cls: canReset ? 'btn-ghost' : 'btn-primary' },
       ...(canReset ? [{ label: 'Continue', cls: 'btn-primary', validate: async (b) => {
         const err = b.querySelector('[data-err]'); err.textContent = 'Checking…';
+        const codeIn = er ? b.querySelector('[data-er-code]').value.trim() : '';
+        if (codeIn) {
+          const pw2 = await Store.recoverWithEmailCode(codeIn);
+          if (!pw2) { err.textContent = 'That reset code doesn’t match. Use the newest email, and check you typed it on the same device it was sent for.'; return false; }
+          b.dataset.pw = pw2; b.dataset.via = 'email'; return true;
+        }
+        if (!questions && !hasCode) { err.textContent = 'Tap “Email me a reset code”, then type the code from the email.'; return false; }
         const pw = questions ? await Store.recoverWithAnswers(questions.map((_, i) => b.querySelector(`[data-ans="${i}"]`).value)) : await Store.recoverPassword(b.querySelector('[data-code]').value);
         if (!pw) { err.textContent = questions ? 'Not quite — at least two answers need to match what you saved. Spelling counts, capitals don’t.' : 'That code doesn’t match.'; return false; }
         b.dataset.pw = pw; return true;
-      }, value: (b) => ({ pw: b.dataset.pw }) }] : [])
+      }, value: (b) => ({ pw: b.dataset.pw, via: b.dataset.via || '' }) }] : [])
     ] });
     if (res === 'erase') {
       if (!(await U.confirm('Erase & start over', 'This erases everything this app stored in this browser so you can start fresh, then restore a backup or turn on sync. It cannot be undone.', 'Erase all data', true))) return;
@@ -3696,7 +3771,7 @@
     }
     if (!res || !res.pw) return;
     const nb = document.createElement('div');
-    nb.innerHTML = `<p style="margin-top:0">✓ Answers accepted. Choose a new password (at least 8 characters).</p>
+    nb.innerHTML = `<p style="margin-top:0">✓ ${res.via === 'email' ? 'Reset code accepted' : 'Answers accepted'}. Choose a new password (at least 8 characters).</p>
       <label class="field"><span>New password</span><input type="password" data-n1 autocomplete="new-password"></label>
       <label class="field"><span>Confirm new password</span><input type="password" data-n2 autocomplete="new-password"></label>
       <label class="field"><span>Password hint (optional — a reminder only you understand, never the password itself)</span><input data-hint maxlength="120" value="${esc(hint)}"></label>
@@ -3711,7 +3786,7 @@
     try {
       if (!(await Store.changePassword(res.pw, np.nw))) throw new Error('reset failed');
       await Store.setHint(np.hint);
-      recoveredFrom = res.pw;
+      recoveredFrom = res.pw; recoveredVia = res.via || '';
       $('#lockPass').value = np.nw;
       onLockSubmit(new Event('submit'));
     } catch (e) { $('#lockError').textContent = 'Could not reset: ' + e.message; }
@@ -3778,7 +3853,7 @@
     $('#btnLock').onclick = () => lockApp('Locked.');
 
     $('#lockForm').addEventListener('submit', onLockSubmit);
-    $('#lockReset').onclick = forgotPassword;
+    $('#lockReset').onclick = () => forgotPassword();
 
     document.addEventListener('keydown', (e) => {
       const inField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
@@ -3799,7 +3874,7 @@
       numVal, dl, celebrate: (items) => celebrateSale(items), APP_VERSION, get invGrid() { return invGrid; }, get ordGrid() { return ordGrid; }, undoNow: () => undo()
     };
     if (window.Ext && Ext.init) Ext.init();
-    try { showLock((await Store.isSetUp()) ? 'unlock' : 'setup'); }
+    try { const su = await Store.isSetUp(); showLock(su ? 'unlock' : 'setup'); if (su) setTimeout(resetFromHash, 200); }
     catch (e) { showLock('unlock'); $('#lockError').textContent = 'Storage unavailable: ' + e.message; }
   });
 })();

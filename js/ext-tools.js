@@ -50,6 +50,7 @@
       ['↻', 'Check for fee updates', 'platform fees', () => { t.showView('platforms'); click('#btnFeeCheck')(); }],
       ['🌙', 'Switch light / dark', 'theme dark mode', click('#btnTheme')],
       ['🧭', 'Take the tour', 'help tutorial', () => X.startTour && X.startTour(true)],
+      ['🧾', 'Email invoices settings', 'invoice gmail email buyer receipt setup', () => { T().showView('settings'); setTimeout(() => { const c = document.getElementById('invoiceCard'); if (c) c.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 150); }],
       ['🆕', 'What’s new', 'update changes version release notes', () => X.whatsNew && X.whatsNew(X.changes[3].v)],
       ['🔒', 'Lock the app', 'lock password', click('#btnLock')],
       ...[['dashboard', '📈', 'Dashboard'], ['inventory', '👗', 'Inventory'], ['actions', '✅', 'Action Center'], ['orders', '💰', 'Orders & Sales'], ['platforms', '🏪', 'Platforms'], ['expenses', '🧾', 'Expenses & mileage'], ['reports', '📑', 'Reports'], ['settings', '⚙️', 'Settings'], ['guide', '📖', 'Guide']]

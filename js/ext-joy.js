@@ -289,6 +289,19 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.25e', d: 'Nov 25, 2026', items: [
+      ['📋', 'Active items first', 'Inventory now lists the items you still have first, in SKU order, with sold items below a gold line.'],
+      ['🙈', 'Hide sold', 'One tap hides sold and donated items for a clean view of your active inventory.']
+    ] },
+    { v: '2026.11.25d', d: 'Nov 25, 2026', items: [
+      ['🔑', 'Reset your password by email', 'Forgot the password? On the lock screen, tap “Email me a reset code” — it goes to the shop’s Gmail. Reset questions and the hint still work too.']
+    ] },
+    { v: '2026.11.25c', d: 'Nov 25, 2026', items: [
+      ['🧾', 'Invoices for buyers', 'Sold item → 🧾 Invoice makes a branded PDF invoice (one item or a whole bundle order) with the buyer’s name, shipping, tax and a PAID stamp.'],
+      ['✉️', 'One-tap email from your Gmail', 'After a one-time setup (Settings → Email invoices), invoices go straight to the buyer from your own Gmail, with the PDF attached. Free — up to 100 emails a day.'],
+      ['📤', 'Send / share PDF', 'Works with no setup: opens your phone’s share sheet with the invoice attached — pick Gmail, Messages or WhatsApp. On a computer it downloads the PDF and opens an email.'],
+      ['🔔', 'Invoice reminder', 'After you record a sale, a small “Send the buyer an invoice?” button pops up (turn it off in Settings).']
+    ] },
     { v: '2026.11.25b', d: 'Nov 25, 2026', items: [
       ['📣', 'Share cards', 'Item details → 📣 Share card makes a polished image for Instagram, Facebook or Stories — “For sale” or “Just sold!”, with your photo, logo, price and shop link.'],
       ['💡', 'Smart price suggestions', 'When you add or edit an item, the app suggests a price from what similar items (same brand or category) sold for — with how fast they sold.'],
