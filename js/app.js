@@ -1019,8 +1019,8 @@
         location: g('location'), source: g('source'), purchaseDate: g('purchaseDate'), minPrice: g('minPrice') === '' ? null : U.round2(U.num(g('minPrice')) ?? 0), pkg: g('pkg') };
     };
     const researchBox = body.querySelector('[data-research]');
-    const researchRefresh = () => { if (window.Ext && Ext.researchHtml) researchBox.innerHTML = Ext.researchHtml({ ...read(), ...readDetails() }, true); };
-    researchRefresh(); body.addEventListener('change', (e) => { if (['name', 'brand', 'size', 'category'].includes(e.target.name)) researchRefresh(); });
+    const researchRefresh = () => { if (!window.Ext) return; const x = { ...it, ...read(), ...readDetails() }; const h = (Ext.suggestHtml ? Ext.suggestHtml(x, true) : '') + (Ext.researchHtml ? Ext.researchHtml(x, true) : ''); if (h !== researchBox._h) { researchBox.innerHTML = h; researchBox._h = h; } };
+    researchRefresh(); body.addEventListener('change', (e) => { if (['name', 'brand', 'size', 'category', 'sellingPrice', 'purchasePrice'].includes(e.target.name)) researchRefresh(); });
     const tplRefresh = () => { const x = { ...read(), ...readDetails() }; body.querySelector('[data-tpl=title]').value = fillTemplate(S().templates.title, x); body.querySelector('[data-tpl=desc]').value = fillTemplate(S().templates.description, x); };
     body.addEventListener('input', tplRefresh); tplRefresh();
     body.addEventListener('click', async (e) => {
@@ -1139,6 +1139,7 @@
           ${sold ? '' : `<button class="btn btn-sm btn-xl" data-sh="xlist">${ICON.xlist} Cross-list</button>`}
           <button class="btn btn-sm" data-sh="photos">📷 Photos${(it.photos || []).length ? ' (' + ((it.photos || []).length + (state.thumbs[it.id] ? 1 : 0)) + ')' : ''}</button>
           ${sold ? `<button class="btn btn-sm" data-sh="refund">Refund / return</button>` : ''}
+          <button class="btn btn-sm" data-sh="share">📣 Share card</button>
           <button class="btn btn-sm" data-sh="label">QR label</button>
           <button class="btn btn-sm btn-ghost" data-sh="dup">${ICON.dup} Duplicate</button>
         </div>
@@ -2517,6 +2518,15 @@
           ${g.sales ? bar('Gross sales', m.gross, g.sales, U.money0) : ''}${g.profit ? bar('Net profit', m.netProfit, g.profit, U.money0) : ''}${g.items ? bar('Items sold', m.soldCount, g.items, (n) => U.int(n)) : ''}</div></div>`
       : `<div class="card goals goals-empty"><span>🎯 Set monthly goals for sales, profit and items sold to track your progress here.</span><button class="btn btn-sm" data-goto="settings">Set goals</button></div>`;
   }
+  /** shimmering placeholders while the encrypted data is being opened */
+  function showSkeleton() {
+    $('#lock').classList.add('hidden'); $('#app').classList.remove('hidden');
+    document.querySelectorAll('.view').forEach((x) => x.classList.toggle('active', x.id === 'view-dashboard'));
+    const sk = (h, w = '100%') => `<div class="skel" style="height:${h}px;width:${w}"></div>`;
+    $('#kpis').innerHTML = Array.from({ length: 4 }, () => `<div class="kpi">${sk(12, '45%')}${sk(28, '70%')}${sk(10, '55%')}</div>`).join('');
+    ['#goalsCard', '#milestonesCard'].forEach((q) => { const e = $(q); if (e) e.innerHTML = `<div class="card">${sk(16, '30%')}<div style="height:10px"></div>${sk(70)}</div>`; });
+    ['#platformDonut', '#salesCal', '#bestStrip'].forEach((q) => { const e = $(q); if (e) e.innerHTML = sk(140); });
+  }
   function renderBanner() {
     const el = $('#banner'); if (!el || !Store.unlocked) return;
     const msgs = [];
@@ -3237,7 +3247,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.25';
+  const APP_VERSION = '2026.11.25b';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3575,6 +3585,7 @@
         if (h) { $('#lockHintShow').innerHTML = `💡 Hint: <b>${esc(h)}</b>`; $('#lockHintShow').classList.remove('hidden'); }
         return fail(wrongTries >= 2 ? 'Incorrect password. Forgot it? Click “Forgot password?” below.' : 'Incorrect password.');
       }
+      if (mode !== 'setup') showSkeleton();
       const data = await Store.loadAll();
       state.items = data.items.map(normalizeItem);
       state.expenses = data.expenses.map(normalizeExpense);
@@ -3584,6 +3595,7 @@
       state.meta = { lastBackup: data.meta.lastBackup || null, snapshots: Array.isArray(data.meta.snapshots) ? data.meta.snapshots : [], appVersion: data.meta.appVersion || null, tombstones: data.meta.tombstones || {} };
       state.mileage = (Array.isArray(data.meta.mileage) ? data.meta.mileage : []).map(normalizeTrip);
       state.activity = Array.isArray(data.meta.activity) ? data.meta.activity : [];
+      state.prevVersion = state.meta.appVersion !== APP_VERSION ? (state.meta.appVersion || 'new') : null;
       if (state.meta.appVersion !== APP_VERSION) {
         await takeSnapshot(`Automatic, before first use of app version ${APP_VERSION}`);
         state.meta.appVersion = APP_VERSION;
@@ -3784,7 +3796,7 @@
       state, S, saveSettings, commit, findItem, renderAll, renderView, currentView, showView, profiles, profileFor, platformLabel, platformColor,
       esc, uniq, uniqVals, statusBadge, thumbOf, setPhoto, removePhoto, refreshPhotoRow, itemDialog, openItemSheet, markSoldDialog, persist, myName, addActivity,
       flashRow, saving, ICON, allPlatforms, allCats, normalizeItem, normalizeTrip, blankItem, nextSku, copyText, labelCtx, printCtx, kpi, timeAgo, crossListDialog,
-      numVal, dl, celebrate: (items) => celebrateSale(items), get invGrid() { return invGrid; }, get ordGrid() { return ordGrid; }, undoNow: () => undo()
+      numVal, dl, celebrate: (items) => celebrateSale(items), APP_VERSION, get invGrid() { return invGrid; }, get ordGrid() { return ordGrid; }, undoNow: () => undo()
     };
     if (window.Ext && Ext.init) Ext.init();
     try { showLock((await Store.isSetUp()) ? 'unlock' : 'setup'); }

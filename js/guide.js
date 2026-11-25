@@ -161,7 +161,8 @@
           ['Click any cell to edit it', `${k('Tab')} moves to the next cell, ${k('Enter')} saves, ${k('Esc')} cancels.`],
           ['Undo anything', `The <b>Undo</b> button in the bottom-left corner is always there — it shows what it will undo, like “edit price”. <b>Redo</b> next to it puts it back. Keyboard: ${k('Ctrl')} + ${k('Z')} to undo, ${k('Ctrl')} + ${k('Shift')} + ${k('Z')} (or ${k('Ctrl')} + ${k('Y')}) to redo — use ${k('⌘')} on a Mac.`],
           ['Edit every field at once', 'The ✎ button on a row opens the full editor: brand, size, color, condition, measurements, weight, location, source, purchase date, lowest acceptable price, listings and notes.'],
-          ['Sort', 'Click a column header. <b>Shift</b> + click adds a second sort column.']
+          ['Sort', 'Click a column header. <b>Shift</b> + click adds a second sort column.'],
+          ['Get a price suggestion', 'In the item editor, fill in the brand and/or category: <b>💡 Suggested price</b> appears, based on what similar items <b>you</b> sold (same brand and category, then brand, then category and size, then category). It shows the price range, how fast they usually sold and the sell-through rate. <b>Use $X</b> fills it in. It needs at least 3 similar sales; it also appears in each unsold item’s details.']
         ] },
         { t: 'colors' },
         { t: 'grid', h: 'Finding things', items: [
@@ -354,6 +355,7 @@
         { t: 'kpi' },
         { t: 'grid', items: [
           ['🎯', 'Goal rings', 'Monthly goals for sales, profit and items sold. The ring fills as you go; a marker shows where you should be by today. Set them in Settings → Monthly goals.'],
+          ['🎉', 'Goal celebrations', 'The moment a sale pushes you past a monthly goal, confetti and a “Goal reached” card pop up. The goals card shows ✓ goals reached this month and 🔥 streaks, like “sales goal 3 months in a row”.'],
           ['📊', 'Monthly chart', 'Sales and profit by month.'],
           ['🍩', 'Platform donut', 'Which sites bring in the money.'],
           ['🗓️', 'Sales calendar', 'Every day of the year shaded by sales — spot your best days and streaks.'],
@@ -401,6 +403,13 @@
           ['💌', 'Message', 'Write your own thank-you message and social handle.'],
           ['📐', 'Slip size', 'Letter page or a 4×6 thermal label.']
         ] },
+        { t: 'steps', h: '📣 Share cards for social media', items: [
+          ['Open an item', 'Item details → <b>📣 Share card</b>.'],
+          ['Pick the card', '<b>For sale</b> (with the price tag; items listed over a month say “Still available”) or <b>Just sold!</b> (with a SOLD ribbon — great for showing buyers things move fast).'],
+          ['Pick the size', '<b>Post (4:5)</b> for Instagram and Facebook feeds, or <b>Story (9:16)</b> for Stories and Reels covers.'],
+          ['Share or save', '<b>📤 Share</b> opens your phone’s share sheet — Instagram, Facebook, Messages, WhatsApp. <b>⬇ Save image</b> downloads it.']
+        ] },
+        { t: 'note', kind: 'good', html: 'Cards use the item’s cover photo, your logo, brand, size, condition and color, and your shop link or social handle from Settings → Labels — so every post looks on-brand.' },
         { t: 'note', kind: 'tip', html: 'Every label’s QR code links to that item. Scan it with any phone camera — or the app’s scan button — to open the item instantly. Perfect for finding things in storage bins.' }
       ]
     },
@@ -464,6 +473,8 @@
           ['🗂️', 'Lists', 'Categories, statuses and expense categories.'],
           ['💱', 'Currency', 'How money is shown.'],
           ['🎉', 'Celebration', 'Turn the sale celebration on or off; preview it.'],
+          ['✨', 'Seasonal touches', 'Gentle decorations float across the header: snow in winter, hearts before Valentine’s Day, petals in spring, stars around July 4th, leaves in fall. Settings → Business → <b>Seasonal touches</b> (per device). They stay still if your phone is set to reduce motion.'],
+          ['🆕', 'What’s new', 'After each update, a short note shows what changed — once per device. See it again any time: Settings → Business → <b>🆕 What’s new</b>, or search “what’s new”.'],
           ['📉', 'Selling plan', 'Price-drop steps, days between drops, rounding (cents, whole dollars, .99), relist and decide timing, deep discount.'],
           ['🎯', 'Goals', 'Monthly sales, profit and items sold.'],
           ['📦', 'Shipping packages', 'Your usual packages (poly mailers, boxes) with their weight and what shipping one costs you. Choose one per item; when you sell on a site where you pay shipping, the cost fills in for you.'],
@@ -494,6 +505,7 @@
           ['iPhone: how do I turn on voice typing?', 'Turn on <b>Siri &amp; Dictation</b>: Settings → <b>Siri</b> (or Siri &amp; Search) → turn on Siri, and Settings → General → Keyboard → turn on <b>Enable Dictation</b>. In Safari the app’s 🎤 then works; in the Home Screen app, use the 🎤 key on the keyboard.'],
           ['The microphone says it’s blocked.', 'You tapped “Don’t allow” once. Android Chrome: tap the icon left of the address → Permissions → Microphone → Allow. iPhone Safari: Settings → Apps → Safari → Microphone → Allow (or aA in the address bar → Website Settings).'],
           ['Press and hold doesn’t read anything.', 'Check Settings → Business → Read aloud is ticked, the volume is up, and (iPhone) the phone isn’t on silent. Hold still for about half a second — moving your finger counts as scrolling.'],
+          ['Why does the dashboard shimmer when I unlock?', 'Those are placeholders while your encrypted data is being opened — they turn into your real numbers a moment later.'],
           ['How do I replay the tour?', 'Guide tab → <b>▶ Take the 60-second tour</b>, or search “tour” with Ctrl+K.'],
           ['I imported the wrong file.', 'Settings → Safety snapshots → restore the snapshot from just before the import.'],
           ['Labels print the wrong size.', 'In the print window set scale to <b>Actual size / 100%</b>, margins to <b>Default</b>, and check the label format in Settings.'],

@@ -50,6 +50,7 @@
       ['↻', 'Check for fee updates', 'platform fees', () => { t.showView('platforms'); click('#btnFeeCheck')(); }],
       ['🌙', 'Switch light / dark', 'theme dark mode', click('#btnTheme')],
       ['🧭', 'Take the tour', 'help tutorial', () => X.startTour && X.startTour(true)],
+      ['🆕', 'What’s new', 'update changes version release notes', () => X.whatsNew && X.whatsNew(X.changes[3].v)],
       ['🔒', 'Lock the app', 'lock password', click('#btnLock')],
       ...[['dashboard', '📈', 'Dashboard'], ['inventory', '👗', 'Inventory'], ['actions', '✅', 'Action Center'], ['orders', '💰', 'Orders & Sales'], ['platforms', '🏪', 'Platforms'], ['expenses', '🧾', 'Expenses & mileage'], ['reports', '📑', 'Reports'], ['settings', '⚙️', 'Settings'], ['guide', '📖', 'Guide']]
         .map(([v, i, n]) => [i, 'Go to ' + n, 'tab ' + v, go(v)])
