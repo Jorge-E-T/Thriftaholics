@@ -1738,3 +1738,33 @@ table tbody tr.sku-sold > td { border-top: 1px dashed #c9952e !important; }
 .g-sku { display: none; }
 .gallery-mode #invTable tbody td.col-photo { position: relative; }
 .gallery-mode #invTable tbody td.col-photo .g-sku { display: block; position: absolute; top: 8px; right: 8px; z-index: 3; pointer-events: none; background: rgba(20, 28, 26, .72); color: #fff; font-size: 11.5px; font-weight: 800; letter-spacing: .02em; padding: 3px 9px; border-radius: 99px; box-shadow: 0 1px 4px rgba(0,0,0,.25); backdrop-filter: blur(2px); }
+
+/* ---------- per-site listing prices ---------- */
+.chip .lp { margin-left: 4px; font-weight: 800; font-size: .92em; opacity: .9; }
+.lp-range { font-weight: inherit; border-bottom: 1px dotted currentColor; cursor: help; white-space: nowrap; }
+.sh-listed { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-lp { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px; border: 1px solid var(--line); border-radius: 99px; background: var(--surface-2); font-size: 12.5px; }
+.sh-lp b { font-weight: 800; }
+.sh-lp em { font-style: normal; color: var(--text-3); text-transform: capitalize; }
+.sh-lp a { text-decoration: none; }
+.sh-lp.st-delisted, .sh-lp.st-expired { opacity: .6; }
+/* editor rows: number · site · price · link · status · open · remove */
+.lst-row { grid-template-columns: 26px 150px 86px 1fr 112px 40px 40px; }
+.lst-pr { text-align: right; }
+@media (max-width: 720px) {
+  .lst-row { grid-template-columns: 26px 1fr 86px 40px; grid-template-areas: "n p pr d" ". u u l" ". s s s"; }
+  .lst-row > .lst-num { grid-area: n; } .lst-row > .lst-p { grid-area: p; } .lst-row > .lst-pr { grid-area: pr; }
+  .lst-row > .lst-u { grid-area: u; } .lst-row > .lst-s { grid-area: s; }
+  .lst-row > * { min-width: 0; }
+  .lst-row > .lst-del { grid-area: d; } .lst-row > :nth-child(6) { grid-area: l; }
+}
+
+/* photo manager: pick several photos to delete */
+.ph-selbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 12px; margin: 6px 0 10px; border-radius: 12px; background: var(--surface-2); }
+.ph-selbar [data-selcount] { flex: 1; min-width: 120px; }
+.ph-tile { position: relative; }
+.ph-pick { position: absolute; top: 6px; left: 6px; z-index: 3; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,255,255,.92); box-shadow: 0 1px 4px rgba(0,0,0,.2); cursor: pointer; }
+.ph-pick input { width: 18px; height: 18px; margin: 0; cursor: pointer; }
+.ph-tile.picked { outline: 3px solid var(--danger); outline-offset: -3px; }
+.ph-tile.picked img { opacity: .7; }
+.ph-tile.cover .ph-cv { left: auto; right: 6px; }
