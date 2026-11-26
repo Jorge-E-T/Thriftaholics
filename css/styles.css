@@ -1683,3 +1683,8 @@ table tbody tr.grp-start > td { border-top: 3px solid #c9952e !important; }
 table tbody tr.sku-start > td { border-top: 2px solid var(--ink) !important; }
 table tbody tr.sku-sold > td { border-top: 1px dashed #c9952e !important; }
 .cards-mode tbody tr.sku-start { margin-top: 14px; }
+
+/* Cards/Gallery on a computer: the sort buttons wrap instead of hiding off the edge (phones still swipe) */
+@media (hover: hover) and (pointer: fine) {
+  .cards-mode .grid thead tr { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
+}
