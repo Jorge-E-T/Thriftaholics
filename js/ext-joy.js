@@ -291,6 +291,7 @@
   const CHANGES = [
     { v: '2026.11.26', d: 'Nov 26, 2026', items: [
       ['🔢', 'Group by SKU', 'A new Inventory button shows every item with the same SKU together — the ones you still have first, then the sold ones.'],
+      ['🧮', 'Inventory Estimate fixed', 'The Inventory Estimate total now counts only items still in stock, and totals stay the same when sold items are hidden.'],
       ['🛠️', 'Delist fix', 'Sold items no longer ask to be delisted from the site they sold on. Restoring a backup had marked those as still listed; that’s repaired automatically.']
     ] },
     { v: '2026.11.25f', d: 'Nov 25, 2026', items: [

@@ -428,7 +428,8 @@
         const isNum = ['money', 'int', 'pct', 'dec'].includes(c.type);
         let content = '';
         if (c.total) {
-          const vals = rows.map((r) => val(c, r)).filter((v) => typeof v === 'number');
+          // o.totalRows: totals can cover rows that are only hidden from view; c.totalIf: which rows a total counts
+          const vals = (o.totalRows ? o.totalRows() : rows).filter((r) => !c.totalIf || c.totalIf(r)).map((r) => val(c, r)).filter((v) => typeof v === 'number');
           let t = c.total === 'avg' ? (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null) : vals.reduce((a, b) => a + b, 0);
           content = c.type === 'money' ? U.money0(t) : c.type === 'dec' ? (+t || 0).toFixed(1) : c.type === 'int' ? (t === null ? '—' : (c.total === 'avg' ? 'avg ' : '') + U.int(t)) : U.int(t);
           if (c.totalLabel) content = `<span class="muted small" style="font-weight:500">${c.totalLabel}</span><br>${content}`;
@@ -784,7 +785,7 @@
     { key: 'sku', label: 'SKU', type: 'text', get: (r) => { const n = Number(r.sku); return r.sku !== '' && !isNaN(n) ? n : (r.sku || null); }, render: (r) => { const d = r.sku ? sameSku(r.sku, r.id).length : 0; return `${esc(r.sku || '')}${d ? ` <span class="sku-dup" title="${d + 1} items share this SKU">×${d + 1}</span>` : ''}`; } },
     { key: 'location', label: 'Location', type: 'list', free: true, list: () => uniqVals('location'), render: (r) => (r.location ? `<span class="loc">${esc(r.location)}</span>` : '') },
     { key: 'purchasePrice', label: 'Purchase Price', type: 'money', total: 'sum', totalLabel: 'Total Purchase' },
-    { key: 'sellingPrice', label: 'Selling Price', type: 'money', total: 'sum', totalLabel: 'Inventory Estimate', render: (r) => (r.sellingPrice == null ? '<span class="muted">—</span>' : `${esc(U.money(r.sellingPrice))}${(r.priceHistory || []).length ? `<span class="ph-dot" title="Price changed ${r.priceHistory.length}× — last: ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].from))} → ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].to))}">↓</span>` : ''}`) },
+    { key: 'sellingPrice', label: 'Selling Price', type: 'money', total: 'sum', totalLabel: 'Inventory Estimate', totalIf: (r) => invGroup(r) === 0, render: (r) => (r.sellingPrice == null ? '<span class="muted">—</span>' : `${esc(U.money(r.sellingPrice))}${(r.priceHistory || []).length ? `<span class="ph-dot" title="Price changed ${r.priceHistory.length}× — last: ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].from))} → ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].to))}">↓</span>` : ''}`) },
     { key: 'minPrice', label: 'Lowest Price', type: 'money' },
     { key: 'status', label: 'Status', type: 'list', lower: true, list: allStatuses, render: (r) => statusBadge(r.status) },
     { key: 'platform', label: 'Platform it sold', type: 'list', free: true, lower: true, list: allPlatforms, render: (r) => platformTag(r.platform) },
@@ -833,6 +834,9 @@
   }
   /** “Hide sold” is on, and no status filter asks for sold items */
   const hidingSold = () => !!S().invHideSold && !$('#fStatus').value && $('#fAge').value !== 'sold';
+  let ignoreHide = false;
+  /** the same rows with “Hide sold” off — footer totals don’t change when sold items are hidden */
+  const invTotalRows = () => { ignoreHide = true; try { return invFiltered(); } finally { ignoreHide = false; } };
   function paintHideSold() {
     const b = $('#btnHideSold'); if (!b) return;
     const on = !!S().invHideSold;
@@ -843,7 +847,7 @@
   function invFiltered() {
     const q = $('#invSearch').value.trim().toLowerCase();
     const fs = $('#fStatus').value, fc = $('#fCategory').value, fp = $('#fPlatform').value, fa = $('#fAge').value;
-    const hide = hidingSold();
+    const hide = !ignoreHide && hidingSold();
     return state.items.filter((it) => {
       if (hide && invGroup(it) > 0) return false;
       if (fs && (it.status || '').toLowerCase() !== fs.toLowerCase()) return false;
@@ -867,6 +871,7 @@
       sticky: 'name',
       rows: invFiltered,
       groupCmp: invGroupCmp,
+      totalRows: invTotalRows,
       groupClass: invGroupClass,
       defaultSort: invDefaultSort,
       find: findItem,
@@ -3303,7 +3308,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.26';
+  const APP_VERSION = '2026.11.26b';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
