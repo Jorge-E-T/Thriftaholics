@@ -289,6 +289,19 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.26g', d: 'Nov 26, 2026', items: [
+      ['#️⃣', 'Search by SKU', 'Typing a SKU number now shows exactly that SKU (in stock and sold). Add * to see every SKU that starts with it — like 1* for 1, 10–19, 100–199…'],
+      ['🏷️', 'SKU on gallery cards', 'Gallery cards show the SKU in a dark pill on the top right of the photo.']
+    ] },
+    { v: '2026.11.26f', d: 'Nov 26, 2026', items: [
+      ['👆', 'Swipe through photos', 'In item details, swipe the photo (or use ‹ › , the dots or the arrow keys) to see all of an item’s photos.'],
+      ['🖼️', 'Photos on cards', 'New setting (Settings → Business): keep cards on the cover photo, run a slideshow, or cycle on hover — with your choice of speed and fade, slide or no transition.']
+    ] },
+    { v: '2026.11.26e', d: 'Nov 26, 2026', items: [
+      ['🖼️', 'Drag & drop photos everywhere', 'Drop one or more images onto an item row, card, gallery tile, the item details window, the photo viewer, the item editor or your logo box.'],
+      ['❓', 'Add, replace or keep', 'If the item already has a photo, you choose: add the new ones to its photo carousel, replace the cover, or keep what’s there.'],
+      ['🛠️', 'Item details buttons fixed', '“Add a photo”, “Packing slip” and “Thank-you card” in the item details window work again.']
+    ] },
     { v: '2026.11.26d', d: 'Nov 26, 2026', items: [
       ['🖱️', 'Sort buttons on computers', 'In Cards and Gallery view, the row of sort buttons now wraps onto a second line on computers, so every button is reachable.']
     ] },

@@ -50,6 +50,7 @@
       ['↻', 'Check for fee updates', 'platform fees', () => { t.showView('platforms'); click('#btnFeeCheck')(); }],
       ['🌙', 'Switch light / dark', 'theme dark mode', click('#btnTheme')],
       ['🧭', 'Take the tour', 'help tutorial', () => X.startTour && X.startTour(true)],
+      ['🖼️', 'Photos on cards (slideshow)', 'photos cards slideshow carousel fade slide hover', () => { T().showView('settings'); setTimeout(() => { const c = document.getElementById('setCardPhotos'); if (c) c.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 200); }],
       ['🧾', 'Email invoices settings', 'invoice gmail email buyer receipt setup', () => { T().showView('settings'); setTimeout(() => { const c = document.getElementById('invoiceCard'); if (c) c.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 150); }],
       ['🆕', 'What’s new', 'update changes version release notes', () => X.whatsNew && X.whatsNew(X.changes[3].v)],
       ['🔒', 'Lock the app', 'lock password', click('#btnLock')],
@@ -72,7 +73,8 @@
     const out = [];
     const acts = actions(); out.push(...(q ? acts.filter((a) => hit(a.hay)) : acts.slice(0, 6)));
     if (q) {
-      const items = t.state.items.filter((i) => hit(norm([i.name, i.sku, i.brand, i.category, i.size, i.color, i.location, i.source, i.notes, (i.listings || []).map((l) => l.platform).join(' ')].join(' '))))
+      const skuT = t.skuQuery ? t.skuQuery(q) : null;
+      const items = t.state.items.filter((i) => skuT ? skuT(i.sku) : hit(norm([i.name, i.sku, i.brand, i.category, i.size, i.color, i.location, i.source, i.notes, (i.listings || []).map((l) => l.platform).join(' ')].join(' '))))
         .sort((a, b) => Number(Calc.isSold(a)) - Number(Calc.isSold(b))).slice(0, 12);
       out.push(...items.map((i) => ({ type: Calc.isSold(i) ? 'Sales' : 'Items', thumb: t.thumbOf(i), icon: Calc.isSold(i) ? '💰' : '👗', title: i.name || 'Untitled', sub: [i.sku ? 'SKU ' + i.sku : '', Calc.isSold(i) ? `sold ${U.fmtDate(i.dateSold)} on ${t.platformLabel(i.platform) || '—'} · ${U.money(i.sellingPrice)}` : U.money(i.sellingPrice), i.location ? '📍 ' + i.location : ''].filter(Boolean).join(' · '), fn: () => t.openItemSheet(i.id) })));
       const ex = t.state.expenses.filter((e) => hit(norm([e.description, e.vendor, e.category, e.notes, e.amount].join(' ')))).slice(0, 5);

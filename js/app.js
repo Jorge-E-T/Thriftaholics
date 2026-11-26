@@ -345,7 +345,7 @@
     const CAMERA = '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
     function photoCell(r) {
       const t = o.photo.get(r);
-      return `<td class="col-photo" data-photo><div class="thumb ${t ? 'has' : ''}" title="${t ? 'Click to view / replace · drop a new image to replace' : 'Click to upload or drag & drop an image'}">${t ? `<img src="${t}" alt="" loading="lazy" draggable="false">` : `${CAMERA}<span>Add photo</span>`}</div></td>`;
+      return `<td class="col-photo" data-photo>${o.photo.badge ? o.photo.badge(r) : ''}<div class="thumb ${t ? 'has' : ''}" title="${t ? 'Click to view / replace · drop a new image to replace' : 'Click to upload or drag & drop an image'}">${t ? `<img src="${t}" alt="" loading="lazy" draggable="false">` : `${CAMERA}<span>Add photo</span>`}</div></td>`;
     }
     /** Freeze checkbox, photo and columns up to o.sticky on the left while scrolling sideways. */
     function applySticky() {
@@ -564,9 +564,9 @@
         clear();
         if (!tr) return;
         e.preventDefault();
-        const file = Array.from(e.dataTransfer.files).find(U.isImageFile);
-        if (!file) { U.toast('Drop an image file (JPG, PNG, WebP…).', 'err'); return; }
-        o.photo.onDrop(o.find(tr.dataset.id), file);
+        const files = Array.from(e.dataTransfer.files).filter(U.isImageFile);
+        if (!files.length) { U.toast('Drop an image file (JPG, PNG, WebP…).', 'err'); return; }
+        o.photo.onDrop(o.find(tr.dataset.id), files[0], files);
       });
     }
 
@@ -864,8 +864,22 @@
     b.innerHTML = on ? '👁 Show sold' : '🙈 Hide sold';
     b.title = on ? 'Sold and donated items are hidden — click to show everything (active items stay on top)' : 'Hide sold and donated items to see only your active inventory';
   }
+  /* SKU search: a number (“1”), “#1” or “sku 1” finds that exact SKU; “1*” finds SKUs starting with 1.
+     A number no item uses as a SKU — or anything in quotes — is searched as ordinary text. */
+  function skuQuery(raw) {
+    raw = String(raw || '').trim();
+    if (!raw || /^["']/.test(raw)) return null;
+    const m = /^(#|sku\s*:?\s*)?([a-z0-9][a-z0-9._-]*?)(\*)?$/i.exec(raw); if (!m) return null;
+    const explicit = !!m[1], code = m[2].toLowerCase(), prefix = !!m[3];
+    if (!explicit && !prefix && !/^\d+$/.test(code)) return null;
+    const test = (sku) => { const k = String(sku || '').trim().toLowerCase().replace(/^#/, ''); return prefix ? k.startsWith(code) : k === code; };
+    if (!explicit && !prefix && !state.items.some((i) => test(i.sku))) return null;
+    return test;
+  }
+  const textQuery = (raw) => String(raw || '').trim().replace(/^["']|["']$/g, '').toLowerCase();
   function invFiltered() {
-    const q = $('#invSearch').value.trim().toLowerCase();
+    const skuT = skuQuery($('#invSearch').value);
+    const q = skuT ? '' : textQuery($('#invSearch').value);
     const fs = $('#fStatus').value, fc = $('#fCategory').value, fp = $('#fPlatform').value, fa = $('#fAge').value;
     const hide = !ignoreHide && hidingSold();
     return state.items.filter((it) => {
@@ -874,6 +888,7 @@
       if (fc && (it.category || '').toLowerCase() !== fc.toLowerCase()) return false;
       if (fp && ![it.platform, ...(it.listings || []).map((l) => l.platform)].some((x) => (x || '').toLowerCase() === fp.toLowerCase())) return false;
       if (fa === 'dupsku') { if (!it.sku || !sameSku(it.sku, it.id).length) return false; } else if (fa && Calc.ageClass(it, S()) !== fa) return false;
+      if (skuT && !skuT(it.sku)) return false;
       if (q) {
         const hay = [it.name, it.sku, it.category, it.platform, it.status, it.notes, it.brand, it.size, it.color, it.location, it.source, ...(it.listings || []).flatMap((l) => [l.platform, l.url])].join(' ').toLowerCase();
         if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
@@ -1031,10 +1046,11 @@
       <div class="photo-field">
         <div class="thumb thumb-lg" data-drop tabindex="0" title="Click to upload or drag & drop an image"></div>
         <div>
-          <b>Product photo</b>
-          <p class="muted small">Drag &amp; drop an image onto the box, or click it to choose a file. Photos are resized and stored encrypted.</p>
+          <b>Product photos</b>
+          <p class="muted small">Drag &amp; drop one or more images here, or click the box to choose files. Photos are resized and stored encrypted.</p>
           <button type="button" class="btn btn-sm" data-photo-camera>📷 Take photo</button>
           <button type="button" class="btn btn-sm btn-ghost" data-photo-remove>Remove photo</button>
+          <div class="pd-choice hidden" data-photo-choice></div>
         </div>
       </div>
       <div class="form-grid">
@@ -1093,6 +1109,22 @@
       rmBtn.classList.toggle('hidden', !src);
     };
     showZone(state.thumbs[it.id] ? state.thumbs[it.id].thumb : null);
+    // new images waiting to be saved: added to the carousel or replacing the cover (asked only if a photo already exists)
+    let pendingFiles = [], pendingMode = 'add';
+    const existingCount = () => (window.Ext && Ext.photoKeys ? Ext.photoKeys(it).length : (state.thumbs[it.id] ? 1 : 0));
+    const choiceBox = body.querySelector('[data-photo-choice]');
+    const paintChoice = () => {
+      const n = existingCount();
+      if (!pendingFiles.length || !n) { choiceBox.classList.add('hidden'); choiceBox.innerHTML = ''; return; }
+      choiceBox.classList.remove('hidden');
+      choiceBox.innerHTML = `<span>This item already has ${n === 1 ? 'a photo' : n + ' photos'}. The ${pendingFiles.length === 1 ? 'new photo' : pendingFiles.length + ' new photos'} will:</span>
+        <div class="seg"><button type="button" data-pm="add" class="${pendingMode === 'add' ? 'on' : ''}">➕ Add to photos</button><button type="button" data-pm="replace" class="${pendingMode === 'replace' ? 'on' : ''}">🔁 Replace cover</button><button type="button" data-pm="keep">✕ Keep current</button></div>`;
+    };
+    choiceBox.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pm]'); if (!b) return;
+      if (b.dataset.pm === 'keep') { pendingFiles = []; pendingMode = 'add'; pendingPhoto = undefined; showZone(state.thumbs[it.id] ? state.thumbs[it.id].thumb : null); paintChoice(); return; }
+      pendingMode = b.dataset.pm; paintChoice();
+    });
     const lstEd = listingsEditor(body.querySelector('[data-listings]'), it.listings || []);
     const readDetails = () => {
       const g = (n) => body.querySelector(`[name="${n}"]`).value.trim();
@@ -1110,11 +1142,18 @@
       const v = body.querySelector(c.dataset.copy === 'title' ? '[data-tpl=title]' : '[data-tpl=desc]').value;
       try { await navigator.clipboard.writeText(v); U.toast('Copied to clipboard', 'ok'); } catch (_) { const t = body.querySelector(c.dataset.copy === 'title' ? '[data-tpl=title]' : '[data-tpl=desc]'); t.select(); document.execCommand('copy'); U.toast('Copied', 'ok'); }
     });
-    const takeFile = (f) => { if (!U.isImageFile(f)) { U.toast('Choose an image file.', 'err'); return; } pendingPhoto = f; showZone(URL.createObjectURL(f)); };
-    attachDropZone(zone, takeFile);
-    zone.addEventListener('click', async () => { const f = await U.pickFile('image/*'); if (f) takeFile(f); });
+    const takeFiles = (fs) => {
+      fs = (fs || []).filter(U.isImageFile); if (!fs.length) { U.toast('Choose an image file.', 'err'); return; }
+      pendingFiles = [...pendingFiles, ...fs]; pendingPhoto = undefined;
+      showZone(URL.createObjectURL(pendingFiles[pendingFiles.length - 1]));
+      if (pendingFiles.length > 1 || existingCount()) zone.insertAdjacentHTML('beforeend', `<span class="pd-badge">+${pendingFiles.length} new</span>`);
+      paintChoice();
+    };
+    const takeFile = (f) => takeFiles([f]);
+    attachDropZone(body.querySelector('.photo-field') || zone, (f, fs) => takeFiles(fs || [f]));
+    zone.addEventListener('click', async () => { if (window.Ext && Ext.pickFiles) { const fs = await Ext.pickFiles('image/*', true); if (fs.length) takeFiles(fs); } else { const f = await U.pickFile('image/*'); if (f) takeFile(f); } });
     zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zone.click(); } });
-    rmBtn.addEventListener('click', () => { pendingPhoto = null; showZone(null); });
+    rmBtn.addEventListener('click', () => { if (pendingFiles.length) { pendingFiles = []; pendingMode = 'add'; paintChoice(); showZone(state.thumbs[it.id] ? state.thumbs[it.id].thumb : null); return; } pendingPhoto = null; showZone(null); });
     body.querySelector('[data-photo-camera]').addEventListener('click', async () => { const f = await U.pickFile('image/*', 'environment'); if (f) takeFile(f); });
     const res = await U.modal({
       title: item ? 'Edit item' : 'Add inventory item', body, wide: true,
@@ -1127,7 +1166,8 @@
     if (newlySold) markListingsSold(res);
     commit('items', [{ id: res.id, after: res }], { label: item ? 'edit item' : 'add item' });
     if (newlySold) { celebrateSale([res]); if (needsDelist(res)) setTimeout(() => delistChecklist(res), S().celebrate === false ? 200 : 2500); }
-    if (pendingPhoto instanceof File) setPhoto(res, pendingPhoto);
+    if (pendingFiles.length) { if (window.Ext && Ext.photoDrop) Ext.photoDrop(res, pendingFiles, { mode: existingCount() ? pendingMode : 'add' }); else setPhoto(res, pendingFiles[0]); }
+    else if (pendingPhoto instanceof File) setPhoto(res, pendingPhoto);
     else if (pendingPhoto === null && state.thumbs[res.id]) removePhoto(res.id);
     addListValue('categories', res.category); addListValue('platforms', res.platform);
     (res.listings || []).forEach((l) => addListValue('platforms', l.platform));
@@ -1208,7 +1248,7 @@
     const lst = (it.listings || []).filter((l) => l.platform || l.url);
     const edited = it.editedBy ? `<div class="sh-edited">Last edited by <b>${esc(it.editedBy)}</b>${it.updatedAt ? ' · ' + esc(timeAgo(it.updatedAt)) : ''}</div>` : '';
     const body = `<div class="sheet" data-item="${esc(it.id)}">
-      <div class="sh-photo ${photo ? '' : 'none'}">${photo ? `<img src="${photo}" alt="">` : `<button type="button" class="sh-add" data-sh="photo">${ICON.camera || ''}<span>Add a photo</span></button>`}
+      <div class="sh-photo ${photo ? '' : 'none'}">${photo ? `<img src="${photo}" alt="">` : `<button type="button" class="sh-add" data-sh="photo">${ICON.camera || ''}<span>Add a photo</span><em>or drag &amp; drop images here</em></button>`}
         <span class="sh-age age-${age}">${sold ? 'Sold' : d !== null ? d + ' days listed' : 'Not listed yet'}</span></div>
       <div class="sh-main">
         <div class="sh-top">${statusBadge(it.status)}${it.bundle ? ' <span class="badge b-other">bundle</span>' : ''}<span class="sh-price">${U.money(it.sellingPrice)}</span></div>
@@ -1233,11 +1273,15 @@
       ${it.notes || it.description ? `<div class="sh-card sh-wide"><h4>Notes</h4><div class="sh-notes">${esc(it.description || '')}${it.description && it.notes ? '<br><br>' : ''}${esc(it.notes || '')}</div></div>` : ''}
       ${window.Ext && Ext.sheetBottom ? Ext.sheetBottom(it) : ''}
     </div>`;
+    let sheetDrop = null;
     const go = await U.modal({
       title: it.name || 'Item', wide: 'xl', body, buttons: [{ label: 'Close', value: null, cls: 'btn-ghost' }],
       onOpen: (b) => {
+        // drop images anywhere on the item details to add them (asks before replacing an existing photo)
+        attachDropZone(b, (f, fs) => { sheetDrop = fs || [f]; U.closeModal('__drop'); });
         b.addEventListener('click', (e) => { const a = e.target.closest('[data-sh]'); if (a) U.closeModal(a.dataset.sh); });
-        b.querySelectorAll('.sh-strip img[data-ph]').forEach((im) => im.addEventListener('click', () => { const main = b.querySelector('.sh-photo img'); if (main) main.src = im.dataset.full || im.src; b.querySelectorAll('.sh-strip img').forEach((x) => x.classList.toggle('on', x === im)); }));
+        if (window.Ext && Ext.sheetGallery) Ext.sheetGallery(b, it.id);
+        else b.querySelectorAll('.sh-strip img[data-ph]').forEach((im) => im.addEventListener('click', () => { const main = b.querySelector('.sh-photo img'); if (main) main.src = im.dataset.full || im.src; b.querySelectorAll('.sh-strip img').forEach((x) => x.classList.toggle('on', x === im)); }));
       }
     });
     if (go === 'edit') itemDialog(it);
@@ -1245,10 +1289,11 @@
     else if (go === 'dup') duplicateItems([it]);
     else if (go === 'label') Labels.print([it], labelCtx());
     else if (go === 'xlist') crossListDialog([it]);
-    else if (go && window.Ext && Ext.sheetAction) Ext.sheetAction(go, it);
+    else if (go && window.Ext && Ext.sheetAction && Ext.sheetAction(go, it)) { /* handled by an add-on */ }
     else if (go === 'slip' && typeof Print !== 'undefined') Print.packingSlip([it], printCtx());
     else if (go === 'thanks' && typeof Print !== 'undefined') Print.thankYou([it], printCtx());
-    else if (go === 'photo') { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = async () => { if (inp.files[0]) { await setPhoto(it, inp.files[0]); openItemSheet(it.id); } }; inp.click(); }
+    else if (go === '__drop' && sheetDrop) { if (window.Ext && Ext.photoDrop) await Ext.photoDrop(it, sheetDrop); else await setPhoto(it, sheetDrop[0]); openItemSheet(it.id); }
+    else if (go === 'photo') { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.onchange = async () => { const fs = [...inp.files]; if (fs.length) { if (window.Ext && Ext.photoDrop) await Ext.photoDrop(it, fs); else await setPhoto(it, fs[0]); openItemSheet(it.id); } }; inp.click(); }
   }
   function timeAgo(ms) {
     const s = Math.round((Date.now() - ms) / 1000);
@@ -1607,28 +1652,32 @@
     el.addEventListener('drop', (e) => {
       if (!has(e)) return;
       e.preventDefault(); e.stopPropagation(); el.classList.remove('dragging');
-      const f = Array.from(e.dataTransfer.files).find(U.isImageFile);
-      if (f) onFile(f); else U.toast('Drop an image file (JPG, PNG, WebP…).', 'err');
+      const fs = Array.from(e.dataTransfer.files).filter(U.isImageFile);
+      if (fs.length) onFile(fs[0], fs); else U.toast('Drop an image file (JPG, PNG, WebP…).', 'err');
     });
   }
   async function viewPhoto(item) {
     const body = document.createElement('div');
     body.innerHTML = `<div class="photo-view" data-drop><img src="${thumbOf(item)}" alt="${esc(item.name)}"></div>
-      <p class="muted small" style="text-align:center">Drop a new image on the photo to replace it.</p>`;
+      <p class="muted small" style="text-align:center">Drop new images here to add them or replace this one.</p>`;
     const img = body.querySelector('img');
     Store.getPhoto(item.id).then((p) => { if (p && p.full) img.src = p.full; }).catch(() => {});
-    attachDropZone(body.querySelector('[data-drop]'), (f) => { U.closeModal('dropped'); setPhoto(item, f); });
+    let dropped = null;
+    attachDropZone(body.querySelector('[data-drop]'), (f, fs) => { dropped = fs || [f]; U.closeModal('dropped'); });
     const res = await U.modal({
       title: item.name || 'Photo', body, wide: true,
       buttons: [
+        ...(window.Ext && Ext.photoManager ? [{ label: '📷 All photos', value: 'all', cls: 'btn-ghost' }] : []),
         { label: 'Remove', value: 'remove', cls: 'btn-ghost' },
         { label: 'Download', value: 'download', cls: 'btn-ghost' },
         { label: 'Replace…', value: 'replace', cls: 'btn-ghost' },
         { label: 'Close', value: null, cls: 'btn-primary' }
       ]
     });
+    if (res === 'dropped' && dropped) { if (window.Ext && Ext.photoDrop) Ext.photoDrop(item, dropped); else setPhoto(item, dropped[0]); return; }
+    if (res === 'all') { Ext.photoManager(item.id); return; }
     if (res === 'remove' && (await U.confirm('Remove photo', `Remove the photo for “${esc(item.name)}”?`, 'Remove', true))) removePhoto(item.id);
-    if (res === 'replace') { const f = await U.pickFile('image/*'); if (f) setPhoto(item, f); }
+    if (res === 'replace') { const f = await U.pickFile('image/*'); if (f) { if (window.Ext && Ext.photoDrop) Ext.photoDrop(item, [f], { mode: 'replace' }); else setPhoto(item, f); } }
     if (res === 'download') {
       const p = await Store.getPhoto(item.id);
       if (p) U.download(await (await fetch(p.full)).blob(), `${U.slug(item.name)}${item.sku ? '-sku' + item.sku : ''}.jpg`);
@@ -1636,8 +1685,13 @@
   }
   const photoConfig = {
     get: thumbOf,
-    onClick: async (r) => { if (thumbOf(r)) viewPhoto(r); else { const f = await U.pickFile('image/*'); if (f) setPhoto(r, f); } },
-    onDrop: (r, f) => setPhoto(r, f)
+    onClick: async (r) => {
+      if (thumbOf(r)) { viewPhoto(r); return; }
+      if (window.Ext && Ext.pickFiles && Ext.photoDrop) { const fs = await Ext.pickFiles('image/*', true); if (fs.length) Ext.photoDrop(r, fs); }
+      else { const f = await U.pickFile('image/*'); if (f) setPhoto(r, f); }
+    },
+    onDrop: (r, f, fs) => (window.Ext && Ext.photoDrop ? Ext.photoDrop(r, fs || [f]) : setPhoto(r, f)),
+    badge: (r) => (r && String(r.sku || '').trim() ? `<span class="g-sku">SKU ${esc(String(r.sku).trim())}</span>` : '')
   };
 
   /* =========================================================
@@ -2790,12 +2844,14 @@
     { key: 'daysActive', label: 'Days to Sell', type: 'int', computed: true, total: 'avg', get: (r) => Calc.daysActive(r) }
   ];
   function ordFiltered() {
-    const q = $('#ordSearch').value.trim().toLowerCase(), p = $('#ordPlatform').value, from = $('#ordFrom').value, to = $('#ordTo').value;
+    const skuT = skuQuery($('#ordSearch').value);
+    const q = skuT ? '' : textQuery($('#ordSearch').value), p = $('#ordPlatform').value, from = $('#ordFrom').value, to = $('#ordTo').value;
     return state.items.filter((it) => {
       if (!Calc.isSold(it)) return false;
       if (p && (it.platform || '').toLowerCase() !== p.toLowerCase()) return false;
       if ((from || to) && !U.inRange(it.dateSold, from, to)) return false;
-      if (q && ![it.name, it.sku, it.category, it.platform, it.notes].join(' ').toLowerCase().includes(q)) return false;
+      if (skuT && !skuT(it.sku)) return false;
+      if (q && !q.split(/\s+/).every((w) => [it.name, it.sku, it.category, it.platform, it.notes].join(' ').toLowerCase().includes(w))) return false;
       return true;
     });
   }
@@ -3328,7 +3384,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.26d';
+  const APP_VERSION = '2026.11.26g';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3533,6 +3589,10 @@
     $('#companyName').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 
     $('#logoSlot').onclick = () => $('#logoInput').click();
+    attachDropZone($('#logoSlot'), async (f) => {
+      if (state.logo && !(await U.confirm('Replace logo?', '<p>Use the image you dropped as your new logo? The current logo will be replaced.</p>', 'Replace logo'))) return;
+      uploadLogo(f);
+    });
     $('#btnLogoUpload').onclick = () => $('#logoInput').click();
     $('#logoInput').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; uploadLogo(f); };
     $('#btnLogoRemove').onclick = () => { state.logo = null; persist(() => Store.putVault('logo', null)); renderLogo(); if (window.Sync) Sync.changed(); };
@@ -3933,7 +3993,7 @@
     /* ---------- internal API for the add-on modules (js/ext-*.js) ---------- */
     window.TA = {
       state, S, saveSettings, commit, findItem, renderAll, renderView, currentView, showView, profiles, profileFor, platformLabel, platformColor,
-      esc, uniq, uniqVals, statusBadge, thumbOf, setPhoto, removePhoto, refreshPhotoRow, itemDialog, openItemSheet, markSoldDialog, persist, myName, addActivity,
+      esc, uniq, uniqVals, statusBadge, thumbOf, skuQuery, setPhoto, removePhoto, refreshPhotoRow, itemDialog, openItemSheet, markSoldDialog, persist, myName, addActivity,
       flashRow, saving, ICON, allPlatforms, allCats, normalizeItem, normalizeTrip, blankItem, nextSku, copyText, labelCtx, printCtx, kpi, timeAgo, crossListDialog,
       numVal, dl, celebrate: (items) => celebrateSale(items), APP_VERSION, get invGrid() { return invGrid; }, get ordGrid() { return ordGrid; }, undoNow: () => undo()
     };

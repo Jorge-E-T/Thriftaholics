@@ -171,13 +171,16 @@
         { t: 'colors' },
         { t: 'grid', h: 'Finding things', items: [
           ['🔎', 'Search', `Searches every text field — name, SKU, brand, notes, listings. ${go('inventory', '#invSearch', 'Try it')}`],
+          ['#️⃣', 'Search by SKU', 'Type a SKU number (<b>1</b>, or <b>#1</b> / <b>sku 1</b>) to see exactly that SKU — the items in stock and sold under it. <b>1*</b> shows every SKU starting with 1. To search a number as text instead (a size, a price), put it in quotes: <b>"1"</b>. Works the same in Orders and in Search everything (Ctrl+K).'],
+          ['🏷️', 'SKU on gallery cards', 'In Gallery view, each card shows its SKU in a dark pill on the top right of the photo.'],
           ['🎚️', 'Filters', 'Status, category, platform and age (Fresh, Aging, Stale, Sold). <b>Clear</b> resets them.'],
           ['🧱', 'Columns', `Show or hide columns. Rarely used ones start hidden. ${go('inventory', '#btnColumns')}`],
           ['📷', 'Scan', 'Point the camera at a printed label to jump straight to that item.']
         ] },
         { t: 'views' },
         { t: 'grid', h: 'Photos', items: [
-          ['🖱️', 'Add', 'Drag a picture onto any row, or click the photo placeholder. On a phone, “Take photo” opens the camera.'],
+          ['🖱️', 'Add', 'Drag one or more pictures onto any row, card or gallery tile, onto the item details window, the photo viewer or the item editor — or click the photo placeholder. On a phone, “Take photo” opens the camera.'],
+          ['❓', 'Already has a photo?', 'You’re asked what to do: <b>➕ Add to photos</b> (keeps everything and adds the new ones to the item’s photo carousel), <b>🔁 Replace cover</b> (the new photo becomes the main one; the old cover is deleted) or <b>Keep current</b> (nothing changes). In the item editor the same choice appears under the photo box.'],
           ['🔍', 'View', 'Click a photo to see it full size, replace, download or remove it.'],
           ['🔐', 'Private', 'Photos are resized and encrypted like everything else, and included in backups.'],
           ['📊', 'In Excel', 'Settings → Data → <b>Include product photos in the Excel report</b>.']
@@ -196,6 +199,13 @@
       id: 'photos', icon: '📸', color: '#3f7fb5', title: 'Photos',
       lead: 'Several photos per item, a cover photo, and quick fixes — square crops, rotation and brightness — without leaving the app.',
       blocks: [
+        { t: 'note', kind: 'good', html: '<b>Yes — every item can have many photos.</b> The first is the cover; the rest form a carousel you can flip through in the item details window. Drag &amp; drop works everywhere a photo can be added.' },
+        { t: 'grid', h: 'Flipping through photos', items: [
+          ['👆', 'Item details', 'Swipe the big photo left or right on a phone, click <b>‹ ›</b> or the dots on a computer, use the ← → keys, or tap a thumbnail in the strip below. “2 / 5” shows where you are.'],
+          ['🖼️', 'Photos on cards', 'Settings → Business → <b>Photos on cards</b> (per device): <b>Cover only</b> keeps every card still; <b>Slideshow</b> cycles the photos of items that have two or more; <b>On hover</b> cycles a card only while the mouse is over it.'],
+          ['⏱️', 'Speed &amp; transition', 'For Slideshow and On hover, choose every 3, 5 or 8 seconds, and <b>Fade</b>, <b>Slide</b> or <b>None</b>.'],
+          ['🧘', 'Easy on the eyes', 'Only cards on screen move, each at its own moment; nothing moves while you scroll or a window is open, the table view always stays still, and phones set to reduce motion keep photos still.']
+        ] },
         { t: 'steps', h: 'Manage an item’s photos', items: [
           ['Open the photo manager', 'Item details → <b>📷 Photos</b>. Drag pictures onto the window, click <b>＋ Add photos</b> (pick several at once), or <b>Take photo</b> on a phone.'],
           ['Choose the cover', 'The first photo is the <b>★ Cover</b> — it appears in the table, gallery, labels, reports and Excel. Tap ★ on another photo to make it the cover.'],
