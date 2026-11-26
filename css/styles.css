@@ -1679,3 +1679,7 @@ img { transition: opacity .25s; }
 table tbody tr.grp-start > td { border-top: 3px solid #c9952e !important; }
 .cards-mode tbody tr.grp-start { margin-top: 22px; position: relative; }
 .cards-mode tbody tr.grp-start::before { content: 'Sold & donated'; position: absolute; top: -20px; left: 4px; font-size: .78rem; font-weight: 700; color: #c9952e; letter-spacing: .04em; text-transform: uppercase; }
+/* Group by SKU: a thin line between SKUs; a dashed one where sold items start inside a SKU */
+table tbody tr.sku-start > td { border-top: 2px solid var(--ink) !important; }
+table tbody tr.sku-sold > td { border-top: 1px dashed #c9952e !important; }
+.cards-mode tbody tr.sku-start { margin-top: 14px; }
