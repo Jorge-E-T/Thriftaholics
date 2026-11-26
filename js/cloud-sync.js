@@ -14,7 +14,7 @@
   const COLLS = ['items', 'expenses', 'mileage', 'photos', 'app', 'activity'];
   const ACT_DAYS = 365, ACT_MAX = 3000;
   let actOff = false, actWarned = false; // activity history needs the 'activity' collection in the Firestore rules
-  const LOCAL_ONLY = ['sync', 'cloud', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil', 'updatedAt'];
+  const LOCAL_ONLY = ['sync', 'cloud', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invGroupSku', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil', 'updatedAt'];
   const MAX_DOC = 900000;        // Firestore's limit is 1 MiB per document
   const LIB = ['lib/firebase/firebase-app-compat.js', 'lib/firebase/firebase-auth-compat.js', 'lib/firebase/firebase-firestore-compat.js'];
 

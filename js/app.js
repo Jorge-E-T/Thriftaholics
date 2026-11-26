@@ -370,10 +370,10 @@
     function sorted(rows) {
       const sort = o.getSort();
       // o.group: rows are kept in groups (e.g. active items before sold ones), whatever the column sort
-      if (!sort.length && !o.group && !o.defaultSort) return rows;
+      if (!sort.length && !o.groupCmp && !o.defaultSort) return rows;
       const cols = sort.map((s) => ({ c: o.columns.find((c) => c.key === s.key), d: s.dir === 'desc' ? -1 : 1 })).filter((x) => x.c);
       return [...rows].sort((a, b) => {
-        if (o.group) { const g = o.group(a) - o.group(b); if (g) return g; }
+        if (o.groupCmp) { const g = o.groupCmp(a, b); if (g) return g; }
         for (const { c, d } of cols) {
           const r = cmp(a, b, c);
           if (r !== 0) { const ea = val(c, a), eb = val(c, b); const empty = (v) => v === null || v === undefined || v === ''; return (empty(ea) || empty(eb)) ? r : r * d; }
@@ -447,7 +447,7 @@
         const span = visibleCols().length + (o.selectable ? 1 : 0) + (photoOn() ? 1 : 0) + (o.actions ? 1 : 0);
         tbody.innerHTML = `<tr><td colspan="${span}"><div class="empty">${o.emptyText || 'No rows'}</div></td></tr>`;
       } else {
-        tbody.innerHTML = rowsCache.map((r, i) => `<tr data-id="${esc(r.id)}" class="${rowClass(r)}${o.group && i > 0 && o.group(r) !== o.group(rowsCache[i - 1]) ? ' grp-start' : ''}">${rowInner(r)}</tr>`).join('');
+        tbody.innerHTML = rowsCache.map((r, i) => `<tr data-id="${esc(r.id)}" class="${rowClass(r)}${o.groupClass && i > 0 ? o.groupClass(r, rowsCache[i - 1]) : ''}">${rowInner(r)}</tr>`).join('');
       }
       tfoot.innerHTML = footHTML(rowsCache);
       applySticky();
@@ -813,6 +813,24 @@
     return String(a.sku || '').localeCompare(String(b.sku || ''), undefined, { numeric: true, sensitivity: 'base' }) || (a.name || '').localeCompare(b.name || '');
   };
   const invDefaultSort = (a, b) => (invGroup(a) === 2 && invGroup(b) === 2 ? (b.dateSold || '').localeCompare(a.dateSold || '') || skuCmp(a, b) : skuCmp(a, b));
+  /* “Group by SKU”: every item with SKU 1 (active first, then sold), then SKU 2, … — items without a SKU last */
+  const skuOnly = (a, b) => {
+    const ka = String(a.sku || '').trim(), kb = String(b.sku || '').trim();
+    if (!ka !== !kb) return ka ? -1 : 1;
+    return ka.localeCompare(kb, undefined, { numeric: true, sensitivity: 'base' });
+  };
+  const invGroupCmp = (a, b) => (S().invGroupSku ? skuOnly(a, b) : 0) || (invGroup(a) - invGroup(b));
+  const invGroupClass = (r, prev) => {
+    if (S().invGroupSku) return skuOnly(r, prev) ? ' sku-start' : (invGroup(r) !== invGroup(prev) ? ' sku-sold' : '');
+    return invGroup(r) !== invGroup(prev) ? ' grp-start' : '';
+  };
+  function paintGroupSku() {
+    const b = $('#btnGroupSku'); if (!b) return;
+    const on = !!S().invGroupSku;
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.innerHTML = on ? '🔢 Grouped by SKU' : '🔢 Group by SKU';
+    b.title = on ? 'Items are grouped by SKU (active first within each SKU). Click to list all active items first instead.' : 'Group items by SKU: SKU 1 (active, then sold), SKU 2, …';
+  }
   /** “Hide sold” is on, and no status filter asks for sold items */
   const hidingSold = () => !!S().invHideSold && !$('#fStatus').value && $('#fAge').value !== 'sold';
   function paintHideSold() {
@@ -848,7 +866,8 @@
       photo: photoConfig,
       sticky: 'name',
       rows: invFiltered,
-      group: invGroup,
+      groupCmp: invGroupCmp,
+      groupClass: invGroupClass,
       defaultSort: invDefaultSort,
       find: findItem,
       hidden: () => S().hiddenCols || [],
@@ -880,7 +899,7 @@
       afterRender: (rows) => {
         const tot = state.items.length;
         const hid = hidingSold() ? state.items.filter((i) => invGroup(i) > 0).length : 0;
-        $('#invFootNote').textContent = `Showing ${rows.length} of ${tot} items${hid ? ` · ${hid} sold/donated hidden` : ''} · active items first, by SKU · Ctrl/⌘+Z to undo`;
+        $('#invFootNote').textContent = `Showing ${rows.length} of ${tot} items${hid ? ` · ${hid} sold/donated hidden` : ''} · ${S().invGroupSku ? 'grouped by SKU, active first in each' : 'active items first'} · Ctrl/⌘+Z to undo`;
       }
     });
 
@@ -888,7 +907,8 @@
     $('#invSearch').addEventListener('input', U.debounce(rerender, 120));
     ['#fStatus', '#fCategory', '#fPlatform', '#fAge'].forEach((s) => $(s).addEventListener('change', rerender));
     $('#btnHideSold').onclick = () => { S().invHideSold = !S().invHideSold; saveSettings(); paintHideSold(); rerender(); };
-    paintHideSold();
+    $('#btnGroupSku').onclick = () => { S().invGroupSku = !S().invGroupSku; saveSettings(); paintGroupSku(); rerender(); };
+    paintHideSold(); paintGroupSku();
     $('#btnClearFilters').onclick = () => { $('#invSearch').value = ''; ['#fStatus', '#fCategory', '#fPlatform', '#fAge'].forEach((s) => ($(s).value = '')); rerender(); };
     $('#btnAddItem').onclick = () => itemDialog(null);
     $('#btnColumns').onclick = (e) => columnsPopover(e.currentTarget);
@@ -2679,7 +2699,7 @@
         else { if (puts.length) await Store.putMany(kind, puts); if (k.del.length) await Store.deleteMany(kind, k.del.map((d) => d.id)); }
       }
       await Store.putVault('tombstones', t);
-      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
+      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invGroupSku', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
       if ('logo' in a) { state.logo = a.logo || null; await Store.putVault('logo', state.logo); }
       for (const p of a.photos.put) { await Store.putPhoto(p.id, { thumb: p.thumb, full: p.thumb, w: p.w, h: p.h }); state.thumbs[p.id] = { thumb: p.thumb, w: p.w, h: p.h }; }
       if (a.photos.del.length) { a.photos.del.forEach((id) => delete state.thumbs[id]); await Store.deletePhotos(a.photos.del); }
@@ -3099,7 +3119,7 @@
         if (choice === 'merge' && data.photos) for (const [pid, ph] of Object.entries(data.photos)) if (ph && ph.thumb) await Store.putPhoto(pid, { ...ph, full: ph.full || ph.thumb });
         state.thumbs = (await Store.loadAll()).thumbs;
       });
-      S().listingsMigrated = false;
+      S().listingsMigrated = false; S().soldListingsFixed = false;
       const moved = migrateListings();
       applySettingsToUI(); renderAll();
       addActivity([{ id: U.uid(), t: Date.now(), who: myName(), kind: 'items', n: items.length, label: choice === 'replace' ? 'restored a backup (replace all)' : 'restored a backup (merge)' }]);
@@ -3283,7 +3303,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.25f';
+  const APP_VERSION = '2026.11.26';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3342,15 +3362,33 @@
   }
   /** One-time: items that already name a platform get it in "Listed On" too (nothing is removed). */
   function migrateListings() {
-    if (S().listingsMigrated) return 0;
     const changes = [];
+    if (!S().listingsMigrated) {
+      state.items.forEach((it) => {
+        if ((it.listings || []).length || !it.platform) return;
+        // a sold item's platform is where it SOLD: that listing is done, not something to delist
+        const sold = Calc.isSold(it);
+        changes.push({ id: it.id, after: { ...U.clone(it), listings: splitPlatforms(it.platform).map((p) => ({ platform: p, url: '', status: sold ? 'sold' : 'active', statusDate: sold ? (it.dateSold || '') : '' })) } });
+      });
+      S().listingsMigrated = true;
+    }
+    fixSoldListings(changes);
+    S().soldListingsFixed = true; saveSettings();
+    if (changes.length) commit('items', changes.map((c) => ({ id: c.id, after: c.after })), { undoable: false, log: false });
+    return changes.filter((c) => !c.repair).length;
+  }
+  /** Repair: a sold item still "active" on the very platform it sold on (made by older restores) → mark that listing sold. */
+  function fixSoldListings(changes) {
+    if (S().soldListingsFixed) return;
+    const pending = new Map(changes.map((c) => [c.id, c]));
     state.items.forEach((it) => {
-      if ((it.listings || []).length || !it.platform) return;
-      changes.push({ id: it.id, after: { ...U.clone(it), listings: splitPlatforms(it.platform).map((p) => ({ platform: p, url: '' })) } });
+      const cur = pending.has(it.id) ? pending.get(it.id).after : it;
+      if (!Calc.isSold(cur) || !cur.platform) return;
+      const sold = new Set(splitPlatforms(cur.platform));
+      if (!(cur.listings || []).some((l) => l.status === 'active' && sold.has(l.platform))) return;
+      const after = { ...U.clone(cur), listings: cur.listings.map((l) => (l.status === 'active' && sold.has(l.platform) ? { ...l, status: 'sold', statusDate: l.statusDate || cur.dateSold || '' } : l)) };
+      if (pending.has(it.id)) pending.get(it.id).after = after; else { const c = { id: it.id, after, repair: true }; changes.push(c); pending.set(it.id, c); }
     });
-    S().listingsMigrated = true; saveSettings();
-    if (changes.length) commit('items', changes, { undoable: false, log: false });
-    return changes.length;
   }
 
   /* =========================================================

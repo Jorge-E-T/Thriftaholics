@@ -289,6 +289,10 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.26', d: 'Nov 26, 2026', items: [
+      ['🔢', 'Group by SKU', 'A new Inventory button shows every item with the same SKU together — the ones you still have first, then the sold ones.'],
+      ['🛠️', 'Delist fix', 'Sold items no longer ask to be delisted from the site they sold on. Restoring a backup had marked those as still listed; that’s repaired automatically.']
+    ] },
     { v: '2026.11.25f', d: 'Nov 25, 2026', items: [
       ['🔐', 'Clearer Gmail permission help', 'If Google hasn’t given the Gmail script permission to send email, the app now explains exactly how to fix it.']
     ] },
