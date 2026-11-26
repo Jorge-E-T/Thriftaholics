@@ -28,6 +28,30 @@
 
   /* ---------------- small helpers ---------------- */
   const S = () => api.settings();
+  /** The shared part of a settings object, in a stable form for comparing. */
+  function shared(o) {
+    const x = {}; Object.keys(o || {}).filter((k) => !LOCAL_ONLY.includes(k)).sort().forEach((k) => { x[k] = o[k]; });
+    return JSON.stringify(x);
+  }
+  /** Merge two devices' settings key by key using settings._ts (when each key last changed). */
+  function mergeSettings(L, C, preferCloud) {
+    const lt = (L && L._ts) || {}, ct = (C && C._ts) || {}, out = {}, ts = {};
+    const keys = new Set([...Object.keys(L || {}), ...Object.keys(C || {})]);
+    for (const k of keys) {
+      if (k === '_ts' || k === 'updatedAt') continue;
+      if (LOCAL_ONLY.includes(k)) { if (k in L) out[k] = L[k]; continue; }
+      const inL = k in L && L[k] !== undefined, inC = k in C && C[k] !== undefined;
+      let useC;
+      if (!inL) useC = true;
+      else if (!inC) useC = false;
+      else if ((lt[k] || 0) !== (ct[k] || 0)) useC = (ct[k] || 0) > (lt[k] || 0);
+      else useC = preferCloud || (C.updatedAt || 0) > (L.updatedAt || 0);
+      out[k] = useC ? C[k] : L[k];
+      const t = useC ? ct[k] : lt[k]; if (t) ts[k] = t;
+    }
+    out._ts = ts;
+    return out;
+  }
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function hash(str) {
     str = String(str || ''); let h = 0x811c9dc5, g = 0x01000193;
@@ -375,8 +399,21 @@
       if (!(cS && cS.k && cS.k !== keyId)) {
         // a device connecting for the first time takes the cloud's settings, so fresh defaults never overwrite them
         const lu = lS.updatedAt || 1, cu = cS ? cS.u || 0 : 0;
-        if (cS && (cu > lu || mode === 'cloud' || !seen.linked)) { try { apply.settings = { ...(await dec('app', 'settings', cS)), updatedAt: cu }; } catch (_) { /* ignore */ } }
-        else if (!cS || lu > cu) { const st = { ...lS }; LOCAL_ONLY.forEach((k) => delete st[k]); ops.push({ coll: 'app', id: 'settings', data: await encDoc(st, lu) }); }
+        const forceCloud = mode === 'cloud' || !seen.linked;
+        if (!cS) { const st = { ...lS }; LOCAL_ONLY.forEach((k) => delete st[k]); ops.push({ coll: 'app', id: 'settings', data: await encDoc(st, lu) }); }
+        else if (cu !== lu || forceCloud) {
+          let C = null; try { C = await dec('app', 'settings', cS); } catch (_) { /* ignore */ }
+          if (C) {
+            // merge setting by setting: the most recently changed value wins, and a setting that only one
+            // device has (e.g. the Gmail link) is never dropped because the other device saved later
+            C = { ...C, updatedAt: cu };
+            const M = mergeSettings(lS, C, forceCloud);
+            const same = (x, y) => shared(x) === shared(y);
+            const newU = same(M, C) ? cu : Math.max(lu, cu) + 1;
+            if (!same(M, C)) { const st = { ...M }; LOCAL_ONLY.forEach((k) => delete st[k]); ops.push({ coll: 'app', id: 'settings', data: await encDoc(st, newU) }); }
+            if (!same(M, lS) || lu !== newU) apply.settings = { ...M, updatedAt: newU };
+          }
+        }
       }
       /* blobs: photos, logo, reset questions — last-known state decides which side changed */
       seen.photos = seen.photos || {}; seen.blobs = seen.blobs || {};

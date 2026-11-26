@@ -81,7 +81,27 @@
     saving(1);
     try { await fn(); } catch (e) { console.error(e); U.toast('Save failed: ' + e.message, 'err'); } finally { saving(-1); }
   }
-  const saveSettings = U.debounce(() => { state.settings.updatedAt = Date.now(); persist(() => Store.putVault('settings', state.settings)); if (window.Sync) Sync.changed(); }, 250);
+  /* Each shared setting remembers when it last changed (settings._ts), so sync can merge the two
+     devices' settings one by one instead of the newest copy replacing everything. */
+  const SETTINGS_LOCAL = new Set(['sync', 'cloud', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invGroupSku', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil', 'updatedAt', '_ts']);
+  let settingsBase = {};
+  function settingsBaseline() { settingsBase = {}; for (const [k, v] of Object.entries(state.settings || {})) if (!SETTINGS_LOCAL.has(k)) settingsBase[k] = JSON.stringify(v); }
+  function stampSettings() {
+    const now = Date.now(), ts = (state.settings._ts && typeof state.settings._ts === 'object') ? state.settings._ts : (state.settings._ts = {});
+    for (const [k, v] of Object.entries(state.settings)) {
+      if (SETTINGS_LOCAL.has(k)) continue;
+      const j = JSON.stringify(v);
+      if (settingsBase[k] !== j) { ts[k] = now; settingsBase[k] = j; }
+    }
+  }
+  // backup for the sort-button row in Cards/Gallery: a mouse wheel scrolls it sideways when it overflows
+  document.addEventListener('wheel', (e) => {
+    const tr = e.target.closest && e.target.closest('.cards-mode .grid thead tr');
+    if (!tr || tr.scrollWidth <= tr.clientWidth + 1 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    const before = tr.scrollLeft; tr.scrollLeft += e.deltaY;
+    if (tr.scrollLeft !== before) e.preventDefault();
+  }, { passive: false });
+  const saveSettings = U.debounce(() => { stampSettings(); state.settings.updatedAt = Date.now(); persist(() => Store.putVault('settings', state.settings)); if (window.Sync) Sync.changed(); }, 250);
 
   /** Apply item/expense changes with undo support. changes: [{ id, after }] (after=null deletes) */
   function commit(kind, changes, { undoable = true, label = '', log = true, keepRedo = false } = {}) {
@@ -2704,7 +2724,7 @@
         else { if (puts.length) await Store.putMany(kind, puts); if (k.del.length) await Store.deleteMany(kind, k.del.map((d) => d.id)); }
       }
       await Store.putVault('tombstones', t);
-      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invGroupSku', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; await Store.putVault('settings', state.settings); }
+      if (a.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...a.settings, ...Object.fromEntries(['sync', 'yourName', 'viewMode', 'theme', 'tableHeights', 'rowSize', 'invSort', 'invHideSold', 'invGroupSku', 'invSortSku', 'ordSort', 'expSort', 'mileSort', 'hiddenCols', 'backupSnoozeUntil'].filter((x) => x in state.settings).map((x) => [x, state.settings[x]])) }; settingsBaseline(); await Store.putVault('settings', state.settings); }
       if ('logo' in a) { state.logo = a.logo || null; await Store.putVault('logo', state.logo); }
       for (const p of a.photos.put) { await Store.putPhoto(p.id, { thumb: p.thumb, full: p.thumb, w: p.w, h: p.h }); state.thumbs[p.id] = { thumb: p.thumb, w: p.w, h: p.h }; }
       if (a.photos.del.length) { a.photos.del.forEach((id) => delete state.thumbs[id]); await Store.deletePhotos(a.photos.del); }
@@ -3110,7 +3130,7 @@
       if (choice === 'replace') {
         const prev = { items: state.items, expenses: state.expenses, mileage: state.mileage };
         state.items = items; state.expenses = expenses; state.mileage = trips;
-        if (data.settings) state.settings = { ...U.clone(DEFAULT_SETTINGS), ...data.settings, sync: S().sync };
+        if (data.settings) { state.settings = { ...U.clone(DEFAULT_SETTINGS), ...data.settings, sync: S().sync }; delete state.settings._ts; settingsBase = {}; }
         if (data.logo !== undefined) state.logo = data.logo || null;
         markReplaced(prev);
       } else {
@@ -3308,7 +3328,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.26b';
+  const APP_VERSION = '2026.11.26d';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3669,6 +3689,7 @@
       state.items = data.items.map(normalizeItem);
       state.expenses = data.expenses.map(normalizeExpense);
       state.settings = { ...U.clone(DEFAULT_SETTINGS), ...(data.settings || {}) };
+      settingsBaseline();
       state.logo = data.logo || null;
       state.thumbs = data.thumbs || {}; // photos of removed items are kept, so a snapshot restore brings them back
       state.meta = { lastBackup: data.meta.lastBackup || null, snapshots: Array.isArray(data.meta.snapshots) ? data.meta.snapshots : [], appVersion: data.meta.appVersion || null, tombstones: data.meta.tombstones || {} };

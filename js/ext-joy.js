@@ -289,6 +289,12 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.26d', d: 'Nov 26, 2026', items: [
+      ['🖱️', 'Sort buttons on computers', 'In Cards and Gallery view, the row of sort buttons now wraps onto a second line on computers, so every button is reachable.']
+    ] },
+    { v: '2026.11.26c', d: 'Nov 26, 2026', items: [
+      ['🔒', 'Settings stay put', 'Sync now merges the two phones’ settings one by one, so a setting one phone doesn’t have (like the Gmail invoice link and key) is never wiped. Each device also keeps a protected copy of the Gmail details and puts them back if they go missing.']
+    ] },
     { v: '2026.11.26', d: 'Nov 26, 2026', items: [
       ['🔢', 'Group by SKU', 'A new Inventory button shows every item with the same SKU together — the ones you still have first, then the sold ones.'],
       ['🧮', 'Inventory Estimate fixed', 'The Inventory Estimate total now counts only items still in stock, and totals stay the same when sold items are hidden.'],

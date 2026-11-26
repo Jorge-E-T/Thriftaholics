@@ -25,6 +25,28 @@
       prefix: s.invoicePrefix ?? 'INV-', seq: +s.invoiceSeq || 1
     };
   };
+  /* A protected copy of the Gmail link, key and email in this device's encrypted vault: if a sync or an
+     old backup ever drops them from Settings, they're put back automatically. */
+  let stash = null, stashLoaded = false;
+  async function loadStash() {
+    try { stash = await Store.getVault('invoiceStash'); } catch (_) { stash = null; }
+    stashLoaded = true;
+    const s = S();
+    const missing = (k) => s[k] === undefined || s[k] === null || s[k] === '';
+    if (stash && ((missing('invoiceUrl') && stash.url) || (missing('invoiceKey') && stash.key) || (missing('invoiceMyEmail') && stash.myEmail))) {
+      if (missing('invoiceUrl') && stash.url) s.invoiceUrl = stash.url;
+      if (missing('invoiceKey') && stash.key) s.invoiceKey = stash.key;
+      if (missing('invoiceMyEmail') && stash.myEmail) s.invoiceMyEmail = stash.myEmail;
+      T().saveSettings();
+      return true;
+    }
+    if (!stash && (s.invoiceUrl || s.invoiceKey)) saveStash();
+    return false;
+  }
+  function saveStash() {
+    const s = S(); stash = { url: String(s.invoiceUrl || ''), key: String(s.invoiceKey || ''), myEmail: String(s.invoiceMyEmail || '') };
+    Store.putVault('invoiceStash', stash).catch(() => {});
+  }
   const connected = () => { const c = cfg(); return /^https:\/\/script\.google(usercontent)?\.com\/.+/.test(c.url) && c.key.length >= 8; };
   const newKey = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return Array.from(a, (b) => 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 56]).join(''); };
   const okEmail = (e) => /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(String(e || '').trim());
@@ -492,7 +514,7 @@ ${withLogo ? `<td width="64" style="vertical-align:middle"><img src="cid:logo" w
       <label class="field"><span>Email subject</span><input id="invSubject" value="${esc(c.subject)}"></label>
       <label class="field"><span>Email message</span><textarea id="invMessage" rows="6">${esc(c.message)}</textarea></label>
       <p class="muted small">Placeholders: {buyer} (first name) {company} {invoice} {total} {items} {thanks} (your thank-you message) {shop}. <button type="button" class="linklike" data-invset="reset">Reset wording</button></p>`;
-    const set = (k, v) => { S()[k] = v; T().saveSettings(); };
+    const set = (k, v) => { S()[k] = v; T().saveSettings(); if (['invoiceUrl', 'invoiceKey', 'invoiceMyEmail'].includes(k)) saveStash(); };
     const msg = (h, cls = 'muted') => { const el = card.querySelector('[data-invmsg]'); el.className = 'small ' + cls; el.innerHTML = h; };
     const conn = () => { const el = card.querySelector('.inv-conn'); const ok = connected(); el.classList.toggle('ok', ok); el.firstChild.textContent = ok ? '✓ One-tap email is set up ' : 'One-tap email isn’t set up yet. “Send / share PDF” works without it. '; if (ok && !['on', 'working'].includes(erState().st)) setErState('pending'); else paintEr(); };
     paintEr();
@@ -588,7 +610,14 @@ ${withLogo ? `<td width="64" style="vertical-align:middle"><img src="cid:logo" w
     })().finally(() => { erBusy = null; });
     return erBusy;
   }
-  X.afterUnlock = (pw, { viaEmail } = {}) => { setTimeout(() => ensureEmailReset(pw, { force: !!viaEmail }).catch((e) => console.error('email reset', e)), 1500); };
+  X.afterUnlock = (pw, { viaEmail } = {}) => {
+    setTimeout(async () => {
+      if (await loadStash().catch(() => false)) { U.toast('✉️ Your Gmail invoice settings were restored from this device’s safe copy', 'ok'); if (document.getElementById('invoiceCard')) renderSettings(); }
+      ensureEmailReset(pw, { force: !!viaEmail }).catch((e) => console.error('email reset', e));
+    }, 1500);
+  };
+  // after a sync brings in settings, put the Gmail details back if they went missing
+  setInterval(() => { if (stashLoaded && Store.unlocked && stash && ((stash.url && !S().invoiceUrl) || (stash.key && !S().invoiceKey))) loadStash().then((r) => { if (r && document.getElementById('invoiceCard')) renderSettings(); }); }, 5000);
   async function turnOnNow() {
     const body = `<p style="margin-top:0">Enter this device’s password to set up reset by email.</p><label class="field"><span>Password</span><input type="password" data-pw autocomplete="current-password"></label><p class="lock-error" data-err></p>`;
     const pw = await U.modal({ title: '🔑 Reset by email', body, buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost' }, { label: 'Set it up', cls: 'btn-primary',

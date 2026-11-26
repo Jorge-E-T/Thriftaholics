@@ -134,6 +134,11 @@
       await txDone(t);
     },
 
+    async getVault(k) {
+      const kk = requireKey();
+      const r = await get('vault', k);
+      return r ? decryptWith(kk, r) : null;
+    },
     async putVault(k, value) {
       const kk = requireKey();
       const e = await encryptWith(kk, value);
@@ -199,12 +204,14 @@
       const keepRecovery = await get('vault', 'recoveryCode'); // never drop recovery data on restore/sync
       const keepAnswers = await get('vault', 'questionAnswers');
       const keepEmail = await get('vault', 'emailResetCode');
+      const keepStash = await get('vault', 'invoiceStash');
       const d = await openDB();
       const t = d.transaction(stores, 'readwrite');
       stores.forEach((s) => t.objectStore(s).clear());
       if (keepRecovery) t.objectStore('vault').put(keepRecovery);
       if (keepAnswers) t.objectStore('vault').put(keepAnswers);
       if (keepEmail) t.objectStore('vault').put(keepEmail);
+      if (keepStash) t.objectStore('vault').put(keepStash);
       encItems.forEach((e) => t.objectStore('items').put(e));
       encExp.forEach((e) => t.objectStore('expenses').put(e));
       encVault.forEach((e) => t.objectStore('vault').put(e));
