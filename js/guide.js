@@ -211,7 +211,9 @@
           ['Choose the cover', 'The first photo is the <b>★ Cover</b> — it appears in the table, gallery, labels, reports and Excel. Tap ★ on another photo to make it the cover.'],
           ['Put them in order', '◀ ▶ move a photo; the order is the order you’ll upload them to marketplaces.'],
           ['Edit a photo', '✎ opens the editor: rotate, <b>Square (crop)</b>, <b>Square (white edges)</b> to keep the whole item, brightness, contrast, and <b>✨ Auto-brighten</b> for dim thrift-store lighting.'],
-          ['Save them all', '<b>⬇ Save all</b> downloads every photo, named by SKU. The cross-list helper does the same for each site.']
+          ['Save them all', '<b>⬇ Save all</b> downloads every photo, named by SKU. The cross-list helper does the same for each site.'],
+          ['Delete several at once', 'Tick the box on each photo you want gone (or <b>Select all</b>), then <b>🗑 Delete selected</b>. If the cover is among them, the first photo you keep becomes the new cover. 🗑 on a single photo still deletes just that one.'],
+          ['Many items at once', 'In Inventory, tick the items, then <b>Remove photos…</b> in the bar at the bottom: <b>Keep covers, delete extra</b> or <b>Delete all photos</b>. Deleted photos can’t be undone — download them first if you might want them back.']
         ] },
         { t: 'note', kind: 'tip', html: 'Poshmark and Depop show photos as squares. <b>Square (white edges)</b> keeps the whole garment in frame instead of cutting off sleeves or hems.' },
         { t: 'note', kind: 'good', html: 'Photos are encrypted like everything else, included in backups, and shared through cloud sync as smaller copies.' }
@@ -243,6 +245,7 @@
           ['💲', 'Fee-aware price', 'Each site shows what you’d keep after its fees. <b>Use $X to keep $Y</b> suggests the price that pays you your full list price there.'],
           ['🔗', 'Link check', 'Paste a Poshmark link while eBay is selected and the helper warns you, so a listing is never filed under the wrong site.'],
           ['📈', 'Progress bar', '“Listed on 3 of 5 sites” — see at a glance where each item still needs to go.'],
+          ['💵', 'A price for each site', 'Listed for different amounts on different sites? In the item editor (or the Listed On cell), type a price next to each site — leave it blank to use the main price. The price column then shows the range (like $29–$32; hover or long-press for each site), each site chip shows its own price, and when you record a sale, picking the site fills in that site’s price. The main price is still used for totals, the Inventory Estimate and suggestions.'],
           ['✏️', 'Your rules', 'Every limit, hashtag count and sell-page link is editable per platform, so the helper keeps working when a site changes.'],
           ['🔎', 'Price it right', 'Before you list, <b>Research sold prices</b> (in the item’s details and the editor) opens eBay, Poshmark and Mercari <b>sold</b> listings, plus Depop and Google Shopping, for that item. Edit the search words to narrow it down.']
         ] },

@@ -289,6 +289,13 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.26i', d: 'Nov 26, 2026', items: [
+      ['🗑️', 'Delete several photos at once', 'In an item’s photo manager, tick photos (or Select all) and tap Delete selected.'],
+      ['🧹', 'Remove photos from many items', 'Select items in Inventory → Remove photos… to delete all their photos, or only the extras and keep the covers.']
+    ] },
+    { v: '2026.11.26h', d: 'Nov 26, 2026', items: [
+      ['💵', 'A price for each site', 'Give each listing its own price. The price column shows the range (like $29–$32), site chips show each price, and recording a sale fills in the price of the site it sold on.']
+    ] },
     { v: '2026.11.26g', d: 'Nov 26, 2026', items: [
       ['#️⃣', 'Search by SKU', 'Typing a SKU number now shows exactly that SKU (in stock and sold). Add * to see every SKU that starts with it — like 1* for 1, 10–19, 100–199…'],
       ['🏷️', 'SKU on gallery cards', 'Gallery cards show the SKU in a dark pill on the top right of the photo.']

@@ -805,7 +805,7 @@
     { key: 'sku', label: 'SKU', type: 'text', get: (r) => { const n = Number(r.sku); return r.sku !== '' && !isNaN(n) ? n : (r.sku || null); }, render: (r) => { const d = r.sku ? sameSku(r.sku, r.id).length : 0; return `${esc(r.sku || '')}${d ? ` <span class="sku-dup" title="${d + 1} items share this SKU">×${d + 1}</span>` : ''}`; } },
     { key: 'location', label: 'Location', type: 'list', free: true, list: () => uniqVals('location'), render: (r) => (r.location ? `<span class="loc">${esc(r.location)}</span>` : '') },
     { key: 'purchasePrice', label: 'Purchase Price', type: 'money', total: 'sum', totalLabel: 'Total Purchase' },
-    { key: 'sellingPrice', label: 'Selling Price', type: 'money', total: 'sum', totalLabel: 'Inventory Estimate', totalIf: (r) => invGroup(r) === 0, render: (r) => (r.sellingPrice == null ? '<span class="muted">—</span>' : `${esc(U.money(r.sellingPrice))}${(r.priceHistory || []).length ? `<span class="ph-dot" title="Price changed ${r.priceHistory.length}× — last: ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].from))} → ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].to))}">↓</span>` : ''}`) },
+    { key: 'sellingPrice', label: 'Selling Price', type: 'money', total: 'sum', totalLabel: 'Inventory Estimate', totalIf: (r) => invGroup(r) === 0, render: (r) => (r.sellingPrice == null && !sitePrices(r) ? '<span class="muted">—</span>' : `${sitePrices(r) ? `<span class="lp-range" title="${esc(sitePrices(r).tip)}">${esc(priceText(r))}</span>` : esc(U.money(r.sellingPrice))}${(r.priceHistory || []).length ? `<span class="ph-dot" title="Price changed ${r.priceHistory.length}× — last: ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].from))} → ${esc(U.money(r.priceHistory[r.priceHistory.length - 1].to))}">↓</span>` : ''}`) },
     { key: 'minPrice', label: 'Lowest Price', type: 'money' },
     { key: 'status', label: 'Status', type: 'list', lower: true, list: allStatuses, render: (r) => statusBadge(r.status) },
     { key: 'platform', label: 'Platform it sold', type: 'list', free: true, lower: true, list: allPlatforms, render: (r) => platformTag(r.platform) },
@@ -970,6 +970,7 @@
         if (v) { const c = v.trim().toLowerCase(); commit('items', sel.map((it) => ({ id: it.id, after: { ...U.clone(it), category: c } })), { label: 'set category' }); addListValue('categories', c); renderAll(); }
       }
       if (a === 'duplicate') duplicateItems(sel);
+      if (a === 'photos' && window.Ext && Ext.photoBulkRemove) await Ext.photoBulkRemove(sel);
       if (a === 'price') bulkPriceDialog(sel.filter((x) => !Calc.isSold(x)));
       if (a === 'labels') Labels.print(sel, labelCtx());
       if (a === 'xlist') crossListDialog(sel.filter((x) => !Calc.isSold(x)));
@@ -1251,9 +1252,9 @@
       <div class="sh-photo ${photo ? '' : 'none'}">${photo ? `<img src="${photo}" alt="">` : `<button type="button" class="sh-add" data-sh="photo">${ICON.camera || ''}<span>Add a photo</span><em>or drag &amp; drop images here</em></button>`}
         <span class="sh-age age-${age}">${sold ? 'Sold' : d !== null ? d + ' days listed' : 'Not listed yet'}</span></div>
       <div class="sh-main">
-        <div class="sh-top">${statusBadge(it.status)}${it.bundle ? ' <span class="badge b-other">bundle</span>' : ''}<span class="sh-price">${U.money(it.sellingPrice)}</span></div>
+        <div class="sh-top">${statusBadge(it.status)}${it.bundle ? ' <span class="badge b-other">bundle</span>' : ''}<span class="sh-price"${sitePrices(it) ? ` title="${esc(sitePrices(it).tip)}"` : ''}>${esc(priceText(it))}</span></div>
         <div class="sh-facts">${facts || '<span class="muted small">No details yet — add brand, size and more with Edit.</span>'}</div>
-        ${lst.length ? `<div class="sh-listed">${lst.map((l) => platformTag(l.platform, l.url, l.status)).join('')}</div>` : ''}
+        ${lst.length ? `<div class="sh-listed">${lst.map((l) => `<span class="sh-lp st-${esc(l.status || 'active')}">${platformTag(l.platform)}${l.status === 'active' && listPrice(it, l) != null ? `<b>${esc(U.money(listPrice(it, l)))}</b>` : `<em>${esc(l.status || '')}</em>`}${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" title="Open listing">↗</a>` : ''}</span>`).join('')}</div>` : ''}
         <div class="sh-actions">
           <button class="btn btn-primary btn-sm" data-sh="edit">${ICON.edit} Edit all fields</button>
           ${sold ? `<button class="btn btn-sm btn-gold" data-sh="invoice">🧾 Invoice</button><button class="btn btn-sm" data-sh="slip">Packing slip</button><button class="btn btn-sm" data-sh="thanks">Thank-you card</button>` : `<button class="btn btn-gold btn-sm" data-sh="sold">${ICON.sold} Mark sold</button>`}
@@ -1471,12 +1472,12 @@
           <label class="field"><span>Split the order between the items</span><select name="bSplit"><option value="price">In proportion to their list prices</option><option value="even">Evenly</option><option value="cost">In proportion to what you paid</option></select></label>
           <div class="bundle-prev" data-bprev></div>
         </div>` : ''}
-      ${it && (it.listings || []).length ? `<div class="sold-on">Listed on: ${(it.listings || []).map((l) => `<button type="button" class="chip-btn" data-plat="${esc(l.platform)}" style="--c:${platformColor(l.platform)}">${esc(platformLabel(l.platform))}</button>`).join('')}</div>` : ''}
+      ${it && (it.listings || []).length ? `<div class="sold-on">Listed on: ${(it.listings || []).map((l) => `<button type="button" class="chip-btn" data-plat="${esc(l.platform)}" style="--c:${platformColor(l.platform)}">${esc(platformLabel(l.platform))}${l.price != null ? ` · ${esc(U.money(l.price))}` : ''}</button>`).join('')}</div>` : ''}
       <div class="form-grid">
         <label class="field"><span>Platform it sold</span><input name="platform" list="dlPlat2" value="${esc(platformLabel(it?.platform || (it?.listings || [])[0]?.platform || ''))}"></label>
         <label class="field"><span>Date Sold</span><input type="date" name="dateSold" value="${U.todayISO()}"></label>
         ${single ? `
-        <label class="field"><span>Sale Price</span><input name="sellingPrice" inputmode="decimal" value="${numVal(it?.sellingPrice)}"></label>
+        <label class="field"><span>Sale Price</span><input name="sellingPrice" inputmode="decimal" value="${numVal(it ? listPrice(it, (it.listings || []).find((l) => l.platform === (it.platform || (it.listings || [])[0]?.platform || ''))) : null)}"></label>
         <label class="field"><span>Total After Fees (payout)</span><input name="totalAfterFees" inputmode="decimal" value=""></label>
         <label class="field"><span>Shipping Cost (paid by you)</span><input name="shippingCost" inputmode="decimal" value="${numVal(it?.shippingCost)}"></label>
         <label class="field"><span>Purchase Price</span><input name="purchasePrice" inputmode="decimal" value="${numVal(it?.purchasePrice)}"></label>` : ''}
@@ -1547,7 +1548,18 @@
       body.querySelector('[data-bprev]').innerHTML = `<table class="mini-t"><tr><th>Item</th><th class="n">Price share</th><th class="n">Payout</th><th class="n">Profit</th></tr>${list.map((x, i) => `<tr><td>${esc(x.name)}</td><td class="n">${U.money(P[i])}</td><td class="n">${U.money(N[i])}</td><td class="n">${U.money(N[i] - Sh[i] - (+x.purchasePrice || 0))}</td></tr>`).join('')}<tr class="tot"><td>Order</td><td class="n">${U.money(total)}</td><td class="n">${U.money(net)}</td><td class="n">${U.money(profit)}</td></tr></table>`;
     };
     body.addEventListener('change', (e) => { if (['mode', 'bSplit'].includes(e.target.name)) bundlePrev(); });
-    body.addEventListener('click', (e) => { const b = e.target.closest('[data-plat]'); if (b) { f('platform').value = platformLabel(b.dataset.plat); estimate(); calc(); } });
+    // picking the site it sold on fills in that site's listed price (until you type a price yourself)
+    let priceTyped = false;
+    if (f('sellingPrice')) f('sellingPrice').addEventListener('input', () => { priceTyped = true; });
+    const sitePrice = () => {
+      const cur = it && (findItem(it.id) || it); if (!cur || priceTyped || !f('sellingPrice')) return;
+      const key = String(f('platform').value || '').trim().toLowerCase();
+      const l = (cur.listings || []).find((x) => x.platform === key || platformLabel(x.platform).toLowerCase() === key);
+      const v = l ? listPrice(cur, l) : cur.sellingPrice;
+      if (v != null) { f('sellingPrice').value = numVal(v); f('sellingPrice').dispatchEvent(new Event('input', { bubbles: true })); priceTyped = false; }
+    };
+    if (f('platform')) f('platform').addEventListener('change', () => { sitePrice(); });
+    body.addEventListener('click', (e) => { const b = e.target.closest('[data-plat]'); if (b) { f('platform').value = platformLabel(b.dataset.plat); sitePrice(); estimate(); calc(); } });
     // offers on this item → one tap fills the price
     if (single && it && (it.offers || []).some((o) => o.status !== 'declined')) {
       const box = document.createElement('div'); box.className = 'offer-fill';
@@ -1979,13 +1991,27 @@
     U.toast(`Updated ${names.join(', ')}${synced ? ' — your other devices get it through sync' : ''}`, 'ok');
   }
 
+  /* ---- per-site prices: a listing may have its own price; blank = the item’s main selling price ---- */
+  const listPrice = (it, l) => (l && l.price != null ? l.price : it.sellingPrice);
+  /** Prices the item is actually listed at (active listings), or null when there's nothing different to show. */
+  function sitePrices(it) {
+    if (Calc.isSold(it)) return null;
+    const act = (it.listings || []).filter((l) => l.status === 'active' && l.platform);
+    if (!act.length || !act.some((l) => l.price != null)) return null;
+    const ps = act.map((l) => listPrice(it, l)).filter((v) => v != null);
+    if (!ps.length) return null;
+    const mn = Math.min(...ps), mx = Math.max(...ps);
+    if (mn === mx && mn === it.sellingPrice) return null;
+    return { mn, mx, tip: act.map((l) => `${platformLabel(l.platform)} ${U.money(listPrice(it, l))}`).join(' · ') + (it.sellingPrice != null ? ` · main price ${U.money(it.sellingPrice)}` : '') };
+  }
+  const priceText = (it) => { const sp = sitePrices(it); return sp ? (sp.mn === sp.mx ? U.money(sp.mn) : `${U.money(sp.mn)}–${U.money(sp.mx)}`) : U.money(it.sellingPrice); };
   /* ---- listings (where an item is listed, with links) ---- */
   function listingsChips(r) {
     const ls = r.listings || [];
     if (!ls.length) return '<span class="add-listing">+ Add listing</span>';
     const warn = needsDelist(r) ? `<span class="chip-warn" title="Sold — still active on other sites. Click to open the delist checklist.">Delist ${ls.filter((l) => l.status === 'active').length}</span>` : '';
     const label = { active: '', sold: '✓ ', delisted: '', expired: '' };
-    return '<span class="chips">' + warn + ls.map((l) => `<span class="chip st-${esc(l.status || 'active')}" style="--c:${esc(platformColor(l.platform))}" title="${esc(platformLabel(l.platform))}: ${esc(l.status || 'active')}${l.statusDate ? ' ' + esc(U.fmtDate(l.statusDate)) : ''}">${label[l.status] || ''}${esc(platformLabel(l.platform) || 'Link')}${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" title="Open listing: ${esc(l.url)}">↗</a>` : ''}</span>`).join('') + '</span>';
+    return '<span class="chips">' + warn + ls.map((l) => `<span class="chip st-${esc(l.status || 'active')}" style="--c:${esc(platformColor(l.platform))}" title="${esc(platformLabel(l.platform))}: ${esc(l.status || 'active')}${l.statusDate ? ' ' + esc(U.fmtDate(l.statusDate)) : ''}">${label[l.status] || ''}${esc(platformLabel(l.platform) || 'Link')}${l.price != null && l.price !== r.sellingPrice && l.status !== 'sold' ? `<b class="lp">${esc(U.money(l.price))}</b>` : ''}${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" title="Open listing: ${esc(l.url)}">↗</a>` : ''}</span>`).join('') + '</span>';
   }
   /* ---- cross-listing safety ---- */
   const needsDelist = (it) => Calc.isSold(it) && (it.listings || []).some((l) => l.status === 'active');
@@ -2027,8 +2053,11 @@
   }
 
   /** Editable list of { platform, url } rows: one row per site the item is listed on. */
-  function listingsEditor(container, initial) {
-    const rows = (initial || []).map((l) => ({ platform: platformLabel(l.platform), url: l.url || '', status: l.status || 'active', statusDate: l.statusDate || '' }));
+  function listingsEditor(container, initial, opts = {}) {
+    const rows = (initial || []).map((l) => ({ platform: platformLabel(l.platform), url: l.url || '', status: l.status || 'active', statusDate: l.statusDate || '', price: l.price != null ? String(l.price) : '' }));
+    const rootOf = () => { let r = container; while (r.parentElement) r = r.parentElement; return r; };
+    const priceField = () => rootOf().querySelector('[name="sellingPrice"]');
+    const mainPrice = () => { const v = priceField(); return v ? U.num(v.value) : (typeof opts.mainPrice === 'number' ? opts.mainPrice : null); };
     const dlId = 'dlL-' + Math.random().toString(36).slice(2);
     const draw = (focusLast) => {
       const used = new Set(rows.map((r) => r.platform.toLowerCase()));
@@ -2036,10 +2065,11 @@
       const n = rows.filter((r) => r.platform.trim() || r.url.trim()).length;
       container.innerHTML = `<div class="lst-box">
         <div class="lst-head"><b>Where it’s listed</b><span class="lst-count ${n ? 'on' : ''}">${n ? `Listed on ${n} site${n === 1 ? '' : 's'}` : 'Not listed yet'}</span></div>
-        <p class="muted small lst-help">Add each site this item is posted on (same price on each) with “+ Add another site” or a Quick add button. Paste a listing link and the site name is filled in for you.</p>
+        <p class="muted small lst-help">Add each site this item is posted on with “+ Add another site” or a Quick add button. Give a site its own <b>price</b> if it’s listed for a different amount there — leave it blank to use the main price. Paste a listing link and the site name is filled in for you.</p>
         ${rows.map((r, i) => `<div class="lst-row" data-i="${i}">
           <span class="lst-num" style="--pc:${esc(platformColor(r.platform))}">${i + 1}</span>
           <input class="lst-p" list="${dlId}" placeholder="Site (e.g. Poshmark)" value="${esc(r.platform)}" aria-label="Site ${i + 1}">
+          <input class="lst-pr" inputmode="decimal" placeholder="${mainPrice() != null ? esc(U.money(mainPrice())) : '$ price'}" value="${esc(r.price || '')}" aria-label="Price on site ${i + 1}" title="Price on this site (blank = main price)">
           <input class="lst-u" placeholder="Link to the listing on this site (https://…)" value="${esc(r.url)}" aria-label="Listing link ${i + 1}">
           <select class="lst-s st-${esc(r.status || 'active')}" aria-label="Status ${i + 1}">${['active', 'delisted', 'sold', 'expired'].map((st) => `<option value="${st}" ${r.status === st ? 'selected' : ''}>${st[0].toUpperCase() + st.slice(1)}</option>`).join('')}</select>
           ${r.url ? `<a class="btn btn-sm btn-ghost" href="${esc(U.normUrl(r.url))}" target="_blank" rel="noopener noreferrer" title="Open this listing">↗</a>` : '<span class="lst-gap"></span>'}
@@ -2055,6 +2085,7 @@
       const row = e.target.closest('.lst-row'); if (!row) return;
       const r = rows[+row.dataset.i];
       if (e.target.classList.contains('lst-p')) r.platform = e.target.value;
+      if (e.target.classList.contains('lst-pr')) r.price = e.target.value;
       if (e.target.classList.contains('lst-s')) { r.status = e.target.value; r.statusDate = U.todayISO(); e.target.className = 'lst-s st-' + r.status; }
       if (e.target.classList.contains('lst-u')) {
         r.url = e.target.value;
@@ -2066,7 +2097,7 @@
       const row = e.target.closest('.lst-row'); if (!row) return;
       const r = rows[+row.dataset.i];
       row.querySelector('.lst-num').style.setProperty('--pc', platformColor(r.platform));
-      const slot = row.children[4];
+      const slot = row.children[5];
       const html = r.url ? `<a class="btn btn-sm btn-ghost" href="${esc(U.normUrl(r.url))}" target="_blank" rel="noopener noreferrer" title="Open this listing">↗</a>` : '<span class="lst-gap"></span>';
       const tmp = document.createElement('div'); tmp.innerHTML = html; slot.replaceWith(tmp.firstElementChild);
       const n = rows.filter((x) => x.platform.trim() || x.url.trim()).length;
@@ -2080,12 +2111,15 @@
       if (q) { rows.push({ platform: q.dataset.q, url: '', status: 'active' }); draw('.lst-u'); }
     });
     draw();
-    return { get: () => normListings(rows.map((r) => ({ platform: r.platform, url: r.url, status: r.status, statusDate: r.statusDate }))) };
+    // keep the price boxes' hint in step with the main price field
+    const sp = priceField();
+    if (sp) sp.addEventListener('input', () => container.querySelectorAll('.lst-pr').forEach((x) => { x.placeholder = mainPrice() != null ? U.money(mainPrice()) : '$ price'; }));
+    return { get: () => normListings(rows.map((r) => { const v = U.num(r.price); const m = mainPrice(); return { platform: r.platform, url: r.url, status: r.status, statusDate: r.statusDate, price: v == null || v === m ? null : v }; })) };
   }
   async function listingsDialog(item) {
     const body = document.createElement('div');
-    body.innerHTML = `<p class="muted small" style="margin-top:0">Where “${esc(item.name)}” is listed (same price everywhere: ${esc(U.money(item.sellingPrice) || '—')}). Paste a link to open the listing straight from the inventory table.</p><div data-listings></div>`;
-    const ed = listingsEditor(body.querySelector('[data-listings]'), item.listings || []);
+    body.innerHTML = `<p class="muted small" style="margin-top:0">Where “${esc(item.name)}” is listed. Main price: <b>${esc(U.money(item.sellingPrice) || '—')}</b> — give a site its own price if it’s different there. Paste a link to open the listing straight from the inventory table.</p><div data-listings></div>`;
+    const ed = listingsEditor(body.querySelector('[data-listings]'), item.listings || [], { mainPrice: item.sellingPrice });
     const res = await U.modal({ title: 'Listed on', body, wide: true, buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost' }, { label: 'Save', cls: 'btn-primary', value: () => ed.get() }] });
     if (!res) return;
     commit('items', [{ id: item.id, after: { ...U.clone(item), listings: res } }], { label: 'edit listings' });
@@ -3384,7 +3418,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.26g';
+  const APP_VERSION = '2026.11.26i';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;

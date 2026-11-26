@@ -50,6 +50,54 @@
     t.refreshPhotoRow(cur.id); if (window.Sync) Sync.changed();
   }
 
+  /** Delete several photos of one item at once. If the cover goes, the first remaining photo becomes the cover. */
+  async function removeKeys(it, keys) {
+    const t = T(); const cur = t.findItem(it.id); if (!cur) return 0;
+    const all = keysOf(cur), kill = new Set(keys.filter((k) => all.includes(k)));
+    if (!kill.size) return 0;
+    const remaining = all.filter((k) => !kill.has(k));
+    const gone = [];
+    let extras;
+    if (kill.has(cur.id)) {
+      if (remaining.length) {
+        const first = remaining[0];
+        await swap(cur.id, first); // the first kept photo becomes the cover; the old cover now sits under `first`
+        gone.push(first); extras = remaining.slice(1);
+      } else { delete t.state.thumbs[cur.id]; gone.push(cur.id); extras = []; }
+    } else extras = remaining.filter((k) => k !== cur.id);
+    kill.forEach((k) => { if (k !== cur.id) gone.push(k); });
+    gone.forEach((k) => { delete t.state.thumbs[k]; });
+    await Store.deletePhotos(gone);
+    t.commit('items', [{ id: cur.id, after: { ...U.clone(cur), photos: extras } }], { label: kill.size === 1 ? 'removed a photo' : `removed ${kill.size} photos` });
+    t.refreshPhotoRow(cur.id); if (window.Sync) Sync.changed();
+    return kill.size;
+  }
+  X.photoRemoveKeys = removeKeys;
+  /** Bulk: delete photos from many items — every photo, or only the extras (covers kept). */
+  X.photoBulkRemove = async (items) => {
+    const t = T();
+    const withPh = items.filter((it) => keysOf(it).length);
+    if (!withPh.length) { U.toast('None of the selected items have photos.', 'warn'); return; }
+    const total = withPh.reduce((a, it) => a + keysOf(it).length, 0);
+    const extrasN = withPh.reduce((a, it) => a + Math.max(0, keysOf(it).length - 1), 0);
+    const r = await U.modal({ title: '🗑 Remove photos', body: `<p style="margin-top:0"><b>${withPh.length}</b> of the ${items.length} selected item${items.length === 1 ? '' : 's'} have photos — <b>${total}</b> photo${total === 1 ? '' : 's'} in all${extrasN ? `, ${extrasN} of them extra (not the cover)` : ''}.</p>
+        <p class="muted small">Deleted photos can’t be brought back with Undo. Items without photos aren’t touched.</p>`,
+      buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost' },
+        ...(extrasN ? [{ label: `Keep covers, delete ${extrasN} extra`, value: 'extras' }] : []),
+        { label: `Delete all ${total} photo${total === 1 ? '' : 's'}`, value: 'all', cls: 'btn-danger' }] });
+    if (!r) return;
+    t.saving(1);
+    let n = 0;
+    try {
+      for (const it of withPh) {
+        const cur = t.findItem(it.id); if (!cur) continue;
+        const ks = keysOf(cur);
+        n += await removeKeys(cur, r === 'all' ? ks : ks.slice(1));
+      }
+    } finally { t.saving(-1); }
+    U.toast(`Deleted ${n} photo${n === 1 ? '' : 's'} from ${withPh.length} item${withPh.length === 1 ? '' : 's'}`, 'ok');
+  };
+
   /* ---------- one way to add photos everywhere (drag & drop or file picker) ----------
      No photo yet → the first image becomes the cover, the rest go in the carousel.
      Already has photos → ask: add to the carousel, replace the cover, or keep things as they are. */
@@ -100,13 +148,29 @@
     const t = T(); const it = t.findItem(itemId); if (!it) return;
     const keys = keysOf(it);
     const body = `<p class="muted small">The first photo is the <b>cover</b> — it shows in the table, gallery, labels and reports. Drag photos onto this window or use the buttons to add more.</p>
-      <div class="ph-grid" data-drop>${keys.map((k, i) => `<figure class="ph-tile ${i === 0 ? 'cover' : ''}" data-k="${esc(k)}"><img src="${t.state.thumbs[k].thumb}" alt="">${i === 0 ? '<span class="ph-cv">★ Cover</span>' : ''}
+      ${keys.length > 1 ? `<div class="ph-selbar"><label class="check"><input type="checkbox" data-selall> Select all</label><span class="muted small" data-selcount>Tick photos to delete several at once</span><button type="button" class="btn btn-sm btn-danger" data-delsel disabled>🗑 Delete selected</button></div>` : ''}
+      <div class="ph-grid" data-drop>${keys.map((k, i) => `<figure class="ph-tile ${i === 0 ? 'cover' : ''}" data-k="${esc(k)}">${keys.length > 1 ? `<label class="ph-pick" title="Select this photo"><input type="checkbox" data-pick="${esc(k)}"></label>` : ''}<img src="${t.state.thumbs[k].thumb}" alt="">${i === 0 ? '<span class="ph-cv">★ Cover</span>' : ''}
         <figcaption>${i > 0 ? `<button type="button" data-pa="cover" title="Make cover">★</button>` : ''}${i > 1 ? `<button type="button" data-pa="left" title="Move left">◀</button>` : ''}${i > 0 && i < keys.length - 1 ? `<button type="button" data-pa="right" title="Move right">▶</button>` : ''}<button type="button" data-pa="edit" title="Edit: crop, rotate, brightness">✎</button><button type="button" data-pa="del" title="Delete" class="del">🗑</button></figcaption></figure>`).join('')}
         <button type="button" class="ph-add" data-pa="add"><span>＋</span>Add photos</button></div>
       <div class="btn-row mt"><button type="button" class="btn btn-sm" data-pa="camera">📷 Take photo</button>${keys.length ? '<button type="button" class="btn btn-sm" data-pa="saveall">⬇ Save all</button>' : ''}</div>`;
     const r = await U.modal({ title: `Photos — ${it.name}`, wide: true, body, buttons: [{ label: 'Done', value: null, cls: 'btn-primary' }],
       onOpen: (b) => {
         b.addEventListener('click', (e) => { const a = e.target.closest('[data-pa]'); if (!a) return; const k = (a.closest('[data-k]') || {}).dataset; U.closeModal({ a: a.dataset.pa, k: k && k.k }); });
+        // pick several photos → delete them together
+        const picks = () => [...b.querySelectorAll('[data-pick]:checked')].map((x) => x.dataset.pick);
+        const paint = () => {
+          const n = picks().length, all = b.querySelectorAll('[data-pick]').length;
+          const del = b.querySelector('[data-delsel]'); if (!del) return;
+          del.disabled = !n; del.textContent = n ? `🗑 Delete ${n === all ? 'all ' + n : n} selected` : '🗑 Delete selected';
+          b.querySelector('[data-selcount]').textContent = n ? `${n} of ${all} selected` : 'Tick photos to delete several at once';
+          const sa = b.querySelector('[data-selall]'); sa.checked = n === all; sa.indeterminate = n > 0 && n < all;
+          b.querySelectorAll('.ph-tile').forEach((f) => f.classList.toggle('picked', !!f.querySelector('[data-pick]:checked')));
+        };
+        b.addEventListener('change', (e) => {
+          if (e.target.matches('[data-selall]')) b.querySelectorAll('[data-pick]').forEach((x) => { x.checked = e.target.checked; });
+          if (e.target.matches('[data-pick], [data-selall]')) paint();
+        });
+        const ds = b.querySelector('[data-delsel]'); if (ds) ds.addEventListener('click', () => { const ks = picks(); if (ks.length) U.closeModal({ a: 'delsel', keys: ks }); });
         const z = b.querySelector('[data-drop]');
         z.addEventListener('dragover', (e) => { e.preventDefault(); z.classList.add('dragging'); });
         z.addEventListener('dragleave', () => z.classList.remove('dragging'));
@@ -118,6 +182,13 @@
     else if (r.a === 'files') await addFiles(cur, r.files);
     else if (r.a === 'cover') { await swap(cur.id, r.k); t.refreshPhotoRow(cur.id); if (window.Sync) Sync.changed(); U.toast('New cover photo', 'ok'); }
     else if (r.a === 'left' || r.a === 'right') { const i = extra.indexOf(r.k), j = i + (r.a === 'left' ? -1 : 1); if (i >= 0 && j >= 0 && j < extra.length) { [extra[i], extra[j]] = [extra[j], extra[i]]; t.commit('items', [{ id: cur.id, after: { ...U.clone(cur), photos: extra } }], { label: 'reordered photos' }); } }
+    else if (r.a === 'delsel') {
+      const n = r.keys.length, all = n === keysOf(cur).length;
+      if (await U.confirm(all ? 'Delete all photos' : `Delete ${n} photos`, `<p>Delete ${all ? `all ${n} photos of “${esc(cur.name)}”` : `the ${n} selected photo${n === 1 ? '' : 's'}`}?${!all && r.keys.includes(cur.id) ? ' The first photo you keep becomes the new cover.' : ''}</p><p class="muted small">This can’t be undone.</p>`, 'Delete', true)) {
+        const done = await removeKeys(cur, r.keys); U.toast(`Deleted ${done} photo${done === 1 ? '' : 's'}`, 'ok');
+        if (all) { t.refreshPhotoRow(itemId); return; }
+      }
+    }
     else if (r.a === 'del') { if (await U.confirm('Delete photo', '<p>Delete this photo?</p>', 'Delete', true)) await removeKey(cur, r.k); }
     else if (r.a === 'edit') await editor(cur, r.k);
     else if (r.a === 'saveall') { const fs = await X.photoFiles(cur); fs.forEach((f, i) => setTimeout(() => { const a = document.createElement('a'); a.href = f.data; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 350)); }
