@@ -1688,3 +1688,53 @@ table tbody tr.sku-sold > td { border-top: 1px dashed #c9952e !important; }
 @media (hover: hover) and (pointer: fine) {
   .cards-mode .grid thead tr { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
 }
+
+/* ---------- photo drag & drop ---------- */
+#modalBody.dragging, .photo-field.dragging, #logoSlot.dragging { outline: 3px dashed #c9952e; outline-offset: -6px; border-radius: 14px; background: rgba(201,149,46,.06); }
+.sh-add em { display: block; font-style: normal; font-size: .78rem; opacity: .75; margin-top: 2px; }
+.pdq { display: grid; gap: 12px; }
+.pdq-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.pdq-row figure { margin: 0; position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; border: 2px solid var(--line); }
+.pdq-row figure.cover { border-color: #c9952e; }
+.pdq-row figure.new { border-color: #2f8a57; border-style: dashed; }
+.pdq-row img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pdq-row figure span { position: absolute; left: 4px; bottom: 4px; background: #c9952e; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
+.pdq-help { margin: 8px 0 0; padding-left: 18px; line-height: 1.5; }
+.pd-choice { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: .88rem; display: grid; gap: 8px; }
+.pd-choice .seg { flex-wrap: wrap; }
+.photo-field .thumb { position: relative; }
+.pd-badge { position: absolute; right: 6px; bottom: 6px; background: #2f8a57; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+
+/* ---------- item details: photo gallery (swipe / arrows / dots) ---------- */
+.sh-photo.sh-gal { position: relative; touch-action: pan-y; user-select: none; }
+.sh-photo.sh-gal img.sg-in { animation: sgIn .35s ease; }
+@keyframes sgIn { from { opacity: .25; } to { opacity: 1; } }
+.sg-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(255,255,255,.88); color: var(--ink); font-size: 26px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.18); display: grid; place-items: center; padding: 0 0 3px; z-index: 2; }
+.sg-prev { left: 10px; } .sg-next { right: 10px; }
+.sg-nav:hover { background: #fff; }
+.sg-dots { position: absolute; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 6px; z-index: 2; }
+.sg-dots button { width: 8px; height: 8px; border-radius: 50%; border: 0; padding: 0; background: rgba(255,255,255,.6); box-shadow: 0 0 0 1px rgba(0,0,0,.15); cursor: pointer; }
+.sg-dots button.on { background: #c9952e; transform: scale(1.25); }
+.sg-count { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; z-index: 2; }
+@media (hover: hover) { .sh-gal .sg-nav { opacity: 0; transition: opacity .15s; } .sh-gal:hover .sg-nav { opacity: 1; } }
+
+/* ---------- card slideshow transitions ---------- */
+.cards-mode .grid tbody td.col-photo .thumb.has { position: relative; overflow: hidden; }
+.thumb.has img.sl-old, .thumb.has img.sl-new { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .6s ease, transform .6s ease; }
+.thumb.has img.sl-new.sl-fade { opacity: 0; }
+.thumb.sl-go img.sl-new.sl-fade { opacity: 1; }
+.thumb.has img.sl-new.sl-slide { transform: translateX(100%); }
+.thumb.sl-go img.sl-new.sl-slide { transform: translateX(0); }
+.thumb.sl-go img.sl-old.sl-slide { transform: translateX(-100%); }
+
+/* Settings: Photos on cards */
+.cp-set { display: grid; gap: 8px; margin: 10px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.cp-set .seg { flex-wrap: wrap; }
+.cp-more { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; }
+.cp-more.hidden { display: none; }
+.cp-note { margin: 0; }
+
+/* Gallery cards: SKU pill on the top right of the photo (hidden in table and card views) */
+.g-sku { display: none; }
+.gallery-mode #invTable tbody td.col-photo { position: relative; }
+.gallery-mode #invTable tbody td.col-photo .g-sku { display: block; position: absolute; top: 8px; right: 8px; z-index: 3; pointer-events: none; background: rgba(20, 28, 26, .72); color: #fff; font-size: 11.5px; font-weight: 800; letter-spacing: .02em; padding: 3px 9px; border-radius: 99px; box-shadow: 0 1px 4px rgba(0,0,0,.25); backdrop-filter: blur(2px); }
