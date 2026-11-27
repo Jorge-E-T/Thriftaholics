@@ -3229,7 +3229,7 @@
       const expenses = (data.expenses || []).map(normalizeExpense);
       const choice = await U.modal({
         title: 'Restore backup',
-        body: `<p>This backup contains <b>${items.length}</b> items, <b>${expenses.length}</b> expenses${data.photos ? `, <b>${Object.keys(data.photos).length}</b> photos` : ''}${data.settings ? ', settings' : ''}${data.logo ? ' and a logo' : ''}.</p>
+        body: `<p>This backup contains <b>${items.length}</b> items, <b>${expenses.length}</b> expenses${data.photos ? `, <b>${Object.keys(data.photos).length}</b> photos` : ''}${data.photoLinks ? `, <b>${Object.keys(data.photoLinks).length}</b> photo links (downloaded after the restore)` : ''}${data.settings ? ', settings' : ''}${data.logo ? ' and a logo' : ''}.</p>
                <p><b>Replace</b> erases current data on this device and restores the backup exactly.<br><b>Merge</b> keeps current data, adding new records and updating ones with matching IDs.</p>`,
         buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost' }, { label: 'Merge', value: 'merge' }, { label: 'Replace all', value: 'replace', cls: 'btn-danger' }]
       });
@@ -3245,12 +3245,25 @@
       } else {
         const mergeInto = (list, incoming) => { const map = new Map(list.map((x) => [x.id, x])); incoming.forEach((x) => map.set(x.id, x)); return [...map.values()]; };
         state.items = mergeInto(state.items, items); state.expenses = mergeInto(state.expenses, expenses); state.mileage = mergeInto(state.mileage, trips);
+        // a restore file may also list items to remove (e.g. ones it added by mistake earlier); they're tombstoned so sync removes them everywhere
+        if (Array.isArray(data.itemDelete) && data.itemDelete.length) {
+          const del = new Set(data.itemDelete.filter((id) => typeof id === 'string'));
+          const gone = state.items.filter((r) => del.has(r.id));
+          if (gone.length) {
+            const t = (state.meta.tombstones ||= {}); t.items = { ...(t.items || {}) }; const now = Date.now();
+            gone.forEach((r) => { t.items[r.id] = now; }); Store.putVault('tombstones', t).catch(() => {});
+            state.items = state.items.filter((r) => !del.has(r.id));
+            data.photoDelete = [...(data.photoDelete || []), ...gone.flatMap((r) => [r.id, ...(r.photos || [])])];
+          }
+        }
         if (data.logo && !state.logo) state.logo = data.logo;
       }
       state.undo = []; state.redo = []; updateUndoUI(); state.selection.clear();
       await persist(async () => {
         await Store.replaceAll({ items: state.items, expenses: state.expenses, settings: state.settings, logo: state.logo, meta: { ...state.meta, mileage: state.mileage, activity: state.activity }, photos: choice === 'replace' ? (data.photos || null) : null });
         if (choice === 'merge' && data.photos) for (const [pid, ph] of Object.entries(data.photos)) if (ph && ph.thumb) await Store.putPhoto(pid, { ...ph, full: ph.full || ph.thumb });
+        // a restore file may name photos to remove first (e.g. to replace pictures that were added by mistake)
+        if (choice === 'merge' && Array.isArray(data.photoDelete) && data.photoDelete.length) await Store.deletePhotos(data.photoDelete.filter((k) => typeof k === 'string' && k));
         state.thumbs = (await Store.loadAll()).thumbs;
       });
       S().listingsMigrated = false; S().soldListingsFixed = false;
@@ -3259,6 +3272,7 @@
       addActivity([{ id: U.uid(), t: Date.now(), who: myName(), kind: 'items', n: items.length, label: choice === 'replace' ? 'restored a backup (replace all)' : 'restored a backup (merge)' }]);
       U.toast(`Restored ${items.length} items and ${expenses.length} expenses (${choice})`, 'ok');
       if (window.Sync) Sync.changed();
+      if (data.photoLinks && window.Ext && Ext.fetchPhotoLinks) Ext.fetchPhotoLinks(data.photoLinks, data.photoOpts || {});
     } catch (e) { console.error(e); U.toast('Import failed: ' + e.message, 'err'); }
   }
   /** Used by the importer for other programs' JSON (js/importer.js). */
@@ -3437,7 +3451,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.27c';
+  const APP_VERSION = '2026.11.27f';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;

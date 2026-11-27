@@ -67,6 +67,67 @@
   X.photoFingerprint = fingerprint; X.photoSame = sameFp; X.photoDistance = fpDistance;
 
   /** Adds photos; exact copies of photos the item already has (or repeats within this batch) are skipped. */
+  /* ---------- photo links in a restore file ----------
+     A backup may carry  photoLinks: { photoKey: imageUrl }  (and optional photoOpts {full, quality}).
+     The app downloads each picture, shrinks it like any added photo and saves it under that key.
+     Keys that already have a picture are skipped, so importing the same file again simply resumes.
+     Sites that block other web pages from reading their pictures are fetched through the public
+     wsrv.nl image relay instead. */
+  const RELAY = (u) => 'https://wsrv.nl/?url=' + encodeURIComponent(String(u).replace(/^https?:\/\//, ''));
+  let linkRun = null;
+  const blockedHosts = new Set();
+  async function fetchImage(url) {
+    let lastErr; const host = (String(url).match(/^https?:\/\/([^/]+)/) || [])[1] || '';
+    for (const u of blockedHosts.has(host) ? [RELAY(url)] : [url, RELAY(url)]) {
+      if (u !== url && !blockedHosts.has(host)) blockedHosts.add(host);
+      for (let a = 0; a < 2; a++) {
+        try {
+          const r = await fetch(u, { mode: 'cors', credentials: 'omit' });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          const b = await r.blob();
+          if (!/^image\//.test(b.type) && b.size < 2000) throw new Error('not an image');
+          return new File([b], 'photo.jpg', { type: b.type && /^image\//.test(b.type) ? b.type : 'image/jpeg' });
+        } catch (e) { lastErr = e; await new Promise((res) => setTimeout(res, 600)); }
+      }
+    }
+    throw lastErr || new Error('download failed');
+  }
+  X.fetchPhotoLinks = async (links, opts = {}) => {
+    if (linkRun) { U.toast('Photos are already downloading'); return; }
+    const t = T();
+    const todo = Object.entries(links || {}).filter(([k, u]) => k && /^https?:\/\//.test(u || '') && !t.state.thumbs[k]);
+    if (!todo.length) return { added: 0, failed: 0 };
+    const size = { full: Math.min(1400, Math.max(400, +opts.full || 1400)), thumb: 240, quality: Math.min(0.92, Math.max(0.5, +opts.quality || 0.84)) };
+    const run = linkRun = { done: 0, added: 0, failed: [], stop: false, total: todo.length };
+    const bar = document.createElement('div'); bar.className = 'dl-prog'; bar.setAttribute('role', 'status');
+    bar.innerHTML = `<div class="dl-txt"><b>📥 Downloading photos</b><span data-dl></span><small>Keep this tab open — you can keep working.</small></div><div class="dl-track"><i data-dlbar></i></div><button type="button" class="btn btn-ghost btn-sm" data-dlstop>Stop</button>`;
+    document.body.appendChild(bar);
+    bar.querySelector('[data-dlstop]').onclick = () => { run.stop = true; bar.querySelector('[data-dlstop]').disabled = true; };
+    const paint = () => { bar.querySelector('[data-dl]').textContent = `${run.done} of ${run.total}${run.failed.length ? ` · ${run.failed.length} failed` : ''}`; bar.querySelector('[data-dlbar]').style.width = (100 * run.done / run.total).toFixed(1) + '%'; };
+    let lastPaint = 0; paint();
+    let i = 0;
+    const worker = async () => {
+      while (i < todo.length && !run.stop) {
+        const [key, url] = todo[i++];
+        try {
+          if (!t.state.thumbs[key]) {
+            const ph = await U.processImage(await fetchImage(url), size);
+            await putKey(key, ph); run.added++;
+          }
+        } catch (e) { run.failed.push(key); }
+        run.done++;
+        if (Date.now() - lastPaint > 1500) { lastPaint = Date.now(); paint(); t.renderAll(); if (window.Sync) Sync.changed(); }
+      }
+    };
+    try { await Promise.all([worker(), worker(), worker(), worker()]); } finally {
+      linkRun = null; paint(); bar.remove(); t.renderAll(); if (window.Sync) Sync.changed();
+    }
+    const msg = run.stop ? `Stopped — ${run.added} photos added. Import the same file again to finish the rest.`
+      : `${run.added} photos added${run.failed.length ? ` · ${run.failed.length} couldn’t be downloaded (import the file again to retry)` : ''}`;
+    U.toast(msg, run.failed.length || run.stop ? '' : 'ok');
+    return { added: run.added, failed: run.failed.length };
+  };
+
   async function addFiles(it, files, { quiet = false } = {}) {
     const t = T(); let cur = t.findItem(it.id); const extra = [...(cur.photos || [])];
     let added = 0, skipped = 0; const batch = [];

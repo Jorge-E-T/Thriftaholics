@@ -289,6 +289,12 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.27f', d: 'Nov 27, 2026', items: [
+      ['🧹', 'Restore files can fix mistakes', 'A restore file can now remove photos or items that were added by mistake before bringing in the right ones.']
+    ] },
+    { v: '2026.11.27d', d: 'Nov 27, 2026', items: [
+      ['📥', 'Photos from links', 'Restore files can now bring in photos by link — the app downloads and saves them for you, with a progress bar. Used to pull in the pictures from your Poshmark and Depop listings.']
+    ] },
     { v: '2026.11.27c', d: 'Nov 27, 2026', items: [
       ['🔎', 'Research prices: sold AND listed', 'Each site now has Sold and Listed buttons (eBay, Poshmark, Mercari), plus Vinted, ThredUp, Facebook Marketplace and Etsy. ★ Ours opens your own listing, and ⚙ Sites picks which sites show.']
     ] },
