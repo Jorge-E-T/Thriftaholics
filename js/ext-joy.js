@@ -289,6 +289,15 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.27c', d: 'Nov 27, 2026', items: [
+      ['🔎', 'Research prices: sold AND listed', 'Each site now has Sold and Listed buttons (eBay, Poshmark, Mercari), plus Vinted, ThredUp, Facebook Marketplace and Etsy. ★ Ours opens your own listing, and ⚙ Sites picks which sites show.']
+    ] },
+    { v: '2026.11.27b', d: 'Nov 27, 2026', items: [
+      ['🧬', 'Duplicate photo protection', 'Adding a photo an item already has is skipped — even if it was renamed, resized or came from the other phone. The app compares the pictures themselves, so different shots of the same item are still added.']
+    ] },
+    { v: '2026.11.27', d: 'Nov 27, 2026', items: [
+      ['⏳', 'Clearer photo saving in the editor', 'After you add photos in the item editor, a note says what will happen and the Save button pulses until you save. Cancel warns you once before throwing new photos away.']
+    ] },
     { v: '2026.11.26j', d: 'Nov 26, 2026', items: [
       ['🧵', 'Material field', 'Items now have a Material field (right after Condition) for fabric content like “95% cotton, 5% spandex”. It shows in item details, the cross-list helper, listing descriptions ({material}), spreadsheet import/export and the Excel report. Turn on the column in Inventory → Columns.']
     ] },

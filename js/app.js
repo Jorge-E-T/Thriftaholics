@@ -1117,17 +1117,26 @@
     let pendingFiles = [], pendingMode = 'add';
     const existingCount = () => (window.Ext && Ext.photoKeys ? Ext.photoKeys(it).length : (state.thumbs[it.id] ? 1 : 0));
     const choiceBox = body.querySelector('[data-photo-choice]');
-    const paintChoice = () => {
-      const n = existingCount();
-      if (!pendingFiles.length || !n) { choiceBox.classList.add('hidden'); choiceBox.innerHTML = ''; return; }
+    const saveLabel = item ? 'Save changes' : 'Add item';
+    // the Save button gently pulses while new photos are waiting to be saved
+    const pulseSave = (on) => { const sb = document.querySelector('#modalFoot .btn-primary'); if (!sb) return; sb.classList.remove('pulse-save'); if (on) { void sb.offsetWidth; sb.classList.add('pulse-save'); } };
+    let cancelWarned = false;
+    const paintChoice = (popMode) => {
+      const n = existingCount(), k = pendingFiles.length;
+      cancelWarned = false;
+      if (!k) { choiceBox.classList.add('hidden'); choiceBox.innerHTML = ''; pulseSave(false); return; }
       choiceBox.classList.remove('hidden');
-      choiceBox.innerHTML = `<span>This item already has ${n === 1 ? 'a photo' : n + ' photos'}. The ${pendingFiles.length === 1 ? 'new photo' : pendingFiles.length + ' new photos'} will:</span>
-        <div class="seg"><button type="button" data-pm="add" class="${pendingMode === 'add' ? 'on' : ''}">➕ Add to photos</button><button type="button" data-pm="replace" class="${pendingMode === 'replace' ? 'on' : ''}">🔁 Replace cover</button><button type="button" data-pm="keep">✕ Keep current</button></div>`;
+      const what = k === 1 ? 'The new photo' : `The ${k} new photos`;
+      const note = `<p class="pd-pending" data-pending>⏳ ${what} will be ${!n || pendingMode === 'add' ? 'added to this item’s photos' : 'used as the new cover'} when you tap <b>${saveLabel}</b>.</p>`;
+      if (!n) { choiceBox.innerHTML = note; pulseSave(true); return; }
+      choiceBox.innerHTML = `<span>This item already has ${n === 1 ? 'a photo' : n + ' photos'}. ${what} will:</span>
+        <div class="seg"><button type="button" data-pm="add" class="${pendingMode === 'add' ? 'on' : ''}${popMode === 'add' ? ' pop' : ''}">➕ Add to photos</button><button type="button" data-pm="replace" class="${pendingMode === 'replace' ? 'on' : ''}${popMode === 'replace' ? ' pop' : ''}">🔁 Replace cover</button><button type="button" data-pm="keep">✕ Keep current</button></div>${note}`;
+      pulseSave(true);
     };
     choiceBox.addEventListener('click', (e) => {
       const b = e.target.closest('[data-pm]'); if (!b) return;
       if (b.dataset.pm === 'keep') { pendingFiles = []; pendingMode = 'add'; pendingPhoto = undefined; showZone(state.thumbs[it.id] ? state.thumbs[it.id].thumb : null); paintChoice(); return; }
-      pendingMode = b.dataset.pm; paintChoice();
+      pendingMode = b.dataset.pm; paintChoice(pendingMode);
     });
     const lstEd = listingsEditor(body.querySelector('[data-listings]'), it.listings || []);
     const readDetails = () => {
@@ -1161,7 +1170,14 @@
     body.querySelector('[data-photo-camera]').addEventListener('click', async () => { const f = await U.pickFile('image/*', 'environment'); if (f) takeFile(f); });
     const res = await U.modal({
       title: item ? 'Edit item' : 'Add inventory item', body, wide: true,
-      buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost' }, { label: item ? 'Save changes' : 'Add item', cls: 'btn-primary', validate: (b) => { const n = b.querySelector('[name=name]'); if (!n.value.trim()) { n.focus(); n.classList.add('shake'); setTimeout(() => n.classList.remove('shake'), 400); return false; } return true; }, value: () => ({ ...read(), ...readDetails(), listings: lstEd.get() }) }]
+      buttons: [{ label: 'Cancel', value: null, cls: 'btn-ghost', validate: () => {
+        if (!pendingFiles.length || cancelWarned) return true;
+        cancelWarned = true;
+        const p = choiceBox.querySelector('[data-pending]');
+        if (p) { p.classList.add('warn'); p.innerHTML = `⚠️ ${pendingFiles.length === 1 ? 'The new photo isn’t' : `The ${pendingFiles.length} new photos aren’t`} saved yet. Tap <b>${saveLabel}</b> to keep ${pendingFiles.length === 1 ? 'it' : 'them'}, or <b>Cancel</b> again to discard.`; p.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        pulseSave(true);
+        return false;
+      } }, { label: item ? 'Save changes' : 'Add item', cls: 'btn-primary', validate: (b) => { const n = b.querySelector('[name=name]'); if (!n.value.trim()) { n.focus(); n.classList.add('shake'); setTimeout(() => n.classList.remove('shake'), 400); return false; } return true; }, value: () => ({ ...read(), ...readDetails(), listings: lstEd.get() }) }]
     });
     if (!res) return;
     if (res.dateSold && res.status === 'available') res.status = 'sold';
@@ -3421,7 +3437,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.26j';
+  const APP_VERSION = '2026.11.27c';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
