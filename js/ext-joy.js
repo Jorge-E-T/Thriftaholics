@@ -289,6 +289,9 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.27m', d: 'Nov 27, 2026', items: [
+      ['🔎', 'Curtsy in Research prices', 'Curtsy now has its own button in Research prices, with ★ Ours when the item is listed there.']
+    ] },
     { v: '2026.11.27l', d: 'Nov 27, 2026', items: [
       ['🔗', 'Listing-update files', 'Restore can now take a file that only adds listing links and site prices to existing items — nothing else changes, it syncs, and Undo takes it back.']
     ] },

@@ -23,15 +23,23 @@
     { id: 'poshmark', n: 'Poshmark', c: '#8c2f39', m: /posh/i, sold: (q) => `https://poshmark.com/search?query=${E(q)}&availability=sold_out`, listed: (q) => `https://poshmark.com/search?query=${E(q)}&availability=available` },
     { id: 'mercari', n: 'Mercari', c: '#7b4fa0', m: /mercari/i, sold: (q) => `https://www.mercari.com/search/?keyword=${E(q)}&itemStatuses=2`, listed: (q) => `https://www.mercari.com/search/?keyword=${E(q)}&itemStatuses=1` },
     { id: 'depop', n: 'Depop', c: '#d1492e', m: /depop/i, listed: (q) => `https://www.depop.com/search/?q=${E(q)}` },
+    { id: 'curtsy', n: 'Curtsy', c: '#d6457f', m: /curtsy/i, listed: (q) => `https://curtsyapp.com/items?query=${E(q)}` },
     { id: 'vinted', n: 'Vinted', c: '#0b8a8f', m: /vinted/i, listed: (q) => `https://www.vinted.com/catalog?search_text=${E(q)}` },
     { id: 'thredup', n: 'ThredUp', c: '#2f6f5e', m: /thred/i, listed: (q) => `https://www.thredup.com/women?text=${E(q)}` },
     { id: 'facebook', n: 'Facebook', c: '#1877f2', m: /facebook|fb\b|marketplace/i, listed: (q) => `https://www.facebook.com/marketplace/search/?query=${E(q)}` },
     { id: 'etsy', n: 'Etsy', c: '#d35400', m: /etsy/i, listed: (q) => `https://www.etsy.com/search?q=${E(q)}` },
     { id: 'google', n: 'Google', c: '#4b8a3c', m: /^google/i, listed: (q) => `https://www.google.com/search?tbm=shop&q=${E(q)}`, listedLabel: 'Shopping' }
   ];
-  const DEFAULT_SITES = ['ebay', 'poshmark', 'mercari', 'depop', 'vinted', 'thredup', 'google'];
+  const DEFAULT_SITES = ['ebay', 'poshmark', 'mercari', 'depop', 'curtsy', 'vinted', 'thredup', 'google'];
+  // sites added after someone saved their own list still show up once, until the list is saved again
+  const NEW_SITES = ['curtsy'];
   X.researchSites = SITES;
-  const chosen = () => { const s = T() && T().state.settings; const ids = s && Array.isArray(s.researchSites) && s.researchSites.length ? s.researchSites : DEFAULT_SITES; return SITES.filter((x) => ids.includes(x.id)); };
+  const chosen = () => {
+    const s = T() && T().state.settings;
+    let ids = s && Array.isArray(s.researchSites) && s.researchSites.length ? s.researchSites : DEFAULT_SITES;
+    if (ids !== DEFAULT_SITES) { const seen = (s && s.researchSeen) || []; ids = [...ids, ...NEW_SITES.filter((n) => !seen.includes(n) && !ids.includes(n))]; }
+    return SITES.filter((x) => ids.includes(x.id));
+  };
   // the item's own live listing on that site (so you can jump straight to it)
   const ownUrl = (it, site) => {
     const l = (it && it.listings || []).find((x) => x && x.url && site.m.test(String(x.platform || '') + ' ' + x.url) && x.status === 'active');
@@ -65,11 +73,12 @@
   }
   function saveSites(box, reset) {
     const t = T();
-    if (reset) delete t.state.settings.researchSites;
+    if (reset) { delete t.state.settings.researchSites; delete t.state.settings.researchSeen; }
     else {
       const picked = [...box.querySelectorAll('.rs-pick input:checked')].map((x) => x.value);
       if (!picked.length) { if (U.toast) U.toast('Pick at least one site'); return false; }
       t.state.settings.researchSites = SITES.map((s) => s.id).filter((id) => picked.includes(id));
+      t.state.settings.researchSeen = SITES.map((s) => s.id);
     }
     t.saveSettings(); repaint(); return true;
   }
