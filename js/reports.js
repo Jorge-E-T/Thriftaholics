@@ -614,7 +614,7 @@
       { label: 'Fees', get: (r) => Calc.fees(r), fmt: money, total: true, width: 11 },
       { label: 'Shipping Cost', get: (r) => r.shippingCost ?? null, fmt: money, total: true, width: 12 },
       { label: 'Profit', get: (r) => Calc.profit(r), fmt: money, total: true, width: 12 },
-      { label: 'Brand', key: 'brand', width: 16 }, { label: 'Size', key: 'size', width: 8 }, { label: 'Color', key: 'color', width: 10 }, { label: 'Condition', key: 'condition', width: 14 },
+      { label: 'Brand', key: 'brand', width: 16 }, { label: 'Size', key: 'size', width: 8 }, { label: 'Color', key: 'color', width: 10 }, { label: 'Condition', key: 'condition', width: 14 }, { label: 'Material', key: 'material', width: 14 },
       { label: 'Measurements', key: 'measurements', width: 22 }, { label: 'Weight', key: 'weight', width: 9 }, { label: 'Location', key: 'location', width: 12 },
       { label: 'Source', key: 'source', width: 18 }, { label: 'Purchase Date', key: 'purchaseDate', type: 'date', fmt: DATE_FMT, width: 13 },
       { label: 'Lowest Price', get: (r) => r.minPrice ?? null, fmt: money, width: 11 },
@@ -664,6 +664,7 @@
     { key: 'size', label: 'Size', names: ['size'] },
     { key: 'color', label: 'Color', names: ['color', 'colour'] },
     { key: 'condition', label: 'Condition', names: ['condition'] },
+    { key: 'material', label: 'Material', names: ['material', 'materials', 'fabric', 'fabric content'] },
     { key: 'measurements', label: 'Measurements', names: ['measurements', 'measurement'] },
     { key: 'weight', label: 'Weight', names: ['weight'] },
     { key: 'location', label: 'Storage Location', names: ['location', 'storage', 'bin', 'shelf'] },
@@ -749,7 +750,7 @@
         set('totalAfterFees', U.num(g(col.totalAfterFees)));
         set('shippingCost', U.num(g(col.shippingCost)));
         set('notes', String(g(col.notes) || '').trim());
-        ['brand', 'size', 'color', 'condition', 'measurements', 'weight', 'location', 'source'].forEach((k) => set(k, String(g(col[k]) ?? '').trim()));
+        ['brand', 'size', 'color', 'condition', 'material', 'measurements', 'weight', 'location', 'source'].forEach((k) => set(k, String(g(col[k]) ?? '').trim()));
         set('purchaseDate', toISOFromCell(g(col.purchaseDate)));
         set('minPrice', U.num(g(col.minPrice)));
         out.push(rec);

@@ -160,7 +160,7 @@
         { t: 'steps', h: 'Editing like a spreadsheet', items: [
           ['Click any cell to edit it', `${k('Tab')} moves to the next cell, ${k('Enter')} saves, ${k('Esc')} cancels.`],
           ['Undo anything', `The <b>Undo</b> button in the bottom-left corner is always there — it shows what it will undo, like “edit price”. <b>Redo</b> next to it puts it back. Keyboard: ${k('Ctrl')} + ${k('Z')} to undo, ${k('Ctrl')} + ${k('Shift')} + ${k('Z')} (or ${k('Ctrl')} + ${k('Y')}) to redo — use ${k('⌘')} on a Mac.`],
-          ['Edit every field at once', 'The ✎ button on a row opens the full editor: brand, size, color, condition, measurements, weight, location, source, purchase date, lowest acceptable price, listings and notes.'],
+          ['Edit every field at once', 'The ✎ button on a row opens the full editor: brand, size, color, condition, material, measurements, weight, location, source, purchase date, lowest acceptable price, listings and notes.'],
           ['Active items first', 'Items you still have always come first, in SKU order. Sold and donated items follow below a gold line, newest sale first. Clicking a column header sorts within each group.'],
           ['Totals row', 'The bottom row adds up the items that match your search and filters. <b>Inventory Estimate</b> is the selling price of items still in stock (sold items never count). Hiding sold items doesn’t change any total.'],
           ['🔢 Group by SKU', 'Click <b>🔢 Group by SKU</b> to see each SKU together: every item with SKU 1 (the ones you still have first, then the sold ones), then SKU 2, and so on. Items without a SKU come last. Click again to go back to all active items first. Works together with 🙈 Hide sold.'],
@@ -191,7 +191,7 @@
           ['↕️', 'Height', 'Drag the bar under the table, or pick Fit screen, Small, Medium or Large.'],
           ['📏', 'Row size', 'Compact, Comfortable or Large.'],
           ['📌', 'Frozen columns', 'The checkbox, photo and name stay put while you scroll sideways.'],
-          ['🧩', 'Item details', 'Brand, size, color, condition, measurements, weight, storage location, source, purchase date and lowest acceptable price.']
+          ['🧩', 'Item details', 'Brand, size, color, condition, material (fabric content like “95% cotton, 5% spandex” — some platforms require it), measurements, weight, storage location, source, purchase date and lowest acceptable price.']
         ] }
       ]
     },
@@ -229,14 +229,14 @@
           ['Hide the sites you don’t use', `Platforms tab → <b>Hide</b> on each one you never sell on. The helper only shows the platforms you keep. ${go('platforms', '#platGrid')}`],
           ['Check each site’s details', 'Platforms → <b>Edit</b> → <i>Cross-listing helper</i>: the site’s “Sell an item” page, its title limit, description limit, how many hashtags to add, and whether it has a title field at all (Depop doesn’t). The common sites come filled in.'],
           ['Write your listing templates', `Settings → <b>Listing templates</b>. The title and description you write there, with placeholders like {brand} {size} {condition} {measurements}, become the starting text for every site. ${go('settings', '#tplTitle')}`],
-          ['Fill in the item', 'Brand, size, color, condition and measurements make better listings — and each becomes a one-tap copy button in the helper.']
+          ['Fill in the item', 'Brand, size, color, condition, material and measurements make better listings — and each becomes a one-tap copy button in the helper.']
         ] },
         { t: 'steps', h: 'Cross-list an item', items: [
           ['Open the helper', `Any of these: the <b>share</b> icon on an inventory row, <b>Cross-list</b> in the item’s details, or tick several items and choose <b>Cross-list…</b> on the bottom bar to work through them one after another (<b>Next item →</b>). ${go('inventory', '#invWrap')}`],
           ['Pick a site', 'The chips across the top show every platform you use — ✓ means it’s already live there. The helper starts on the first site you haven’t listed on yet.'],
           ['Save the photo', '<b>Save photo</b> downloads it; on a phone, <b>Share / save to Photos</b> puts it in your camera roll so the marketplace app can pick it up.'],
           ['Open the site', '<b>Open … “sell” page</b> starts a new listing in another tab. Keep the Thriftaholics tab open to copy from.'],
-          ['Copy, paste, repeat', 'Tap <b>Copy</b> next to the title, description and price, then paste each into the site. Brand, size, color, condition, measurements and SKU are copy buttons too, and <b>Copy everything at once</b> grabs it all. Edit any text first — changes apply to this listing only.'],
+          ['Copy, paste, repeat', 'Tap <b>Copy</b> next to the title, description and price, then paste each into the site. Brand, size, color, condition, material, measurements and SKU are copy buttons too, and <b>Copy everything at once</b> grabs it all. Edit any text first — changes apply to this listing only.'],
           ['Publish, then come back', 'Publish the listing on the site, copy its link, paste it into step 4 and tap <b>✓ Mark listed</b>. The item now shows that site’s chip, and the helper jumps to the next site you haven’t done.']
         ] },
         { t: 'grid', h: 'Made for each marketplace', items: [

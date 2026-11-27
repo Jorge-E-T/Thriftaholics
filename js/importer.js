@@ -29,6 +29,7 @@
     { key: 'size', label: 'Size', syn: ['size', 'itemsize'] },
     { key: 'color', label: 'Color', syn: ['color', 'colour'] },
     { key: 'condition', label: 'Condition', syn: ['condition', 'itemcondition'] },
+    { key: 'material', label: 'Material', syn: ['material', 'materials', 'fabric', 'fabriccontent', 'composition'] },
     { key: 'measurements', label: 'Measurements', syn: ['measurements', 'measurement', 'dimensions'] },
     { key: 'weight', label: 'Weight', syn: ['weight', 'shippingweight'] },
     { key: 'location', label: 'Storage location', syn: ['location', 'storagelocation', 'bin', 'shelf', 'storage'] },

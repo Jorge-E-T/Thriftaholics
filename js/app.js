@@ -34,9 +34,10 @@
     // 3. listing text
     templates: {
       title: '{brand} {name} {size}',
-      description: '{brand} {name}\nSize: {size}\nColor: {color}\nCondition: {condition}\nMeasurements: {measurements}\n\n{notes}\n\nSKU {sku} · Ships fast!'
+      description: '{brand} {name}\nSize: {size}\nColor: {color}\nCondition: {condition}\nMaterial: {material}\nMeasurements: {measurements}\n\n{notes}\n\nSKU {sku} · Ships fast!'
     },
     conditions: ['New with tags', 'New without tags', 'Excellent', 'Good', 'Fair'],
+    materials: ['Cotton', 'Polyester', 'Linen', 'Wool', 'Cashmere', 'Silk', 'Rayon', 'Viscose', 'Nylon', 'Spandex', 'Denim', 'Leather', 'Faux leather', 'Suede', 'Acrylic', 'Velvet', 'Corduroy', 'Satin', 'Lace', 'Modal', 'Lyocell'],
     // 7. backups / sync
     backupReminderDays: 7, backupSnoozeUntil: '', sync: { enabled: false, clientId: '', lastSync: '' },
     // 8. taxes & goals
@@ -186,7 +187,7 @@
      ========================================================= */
   const ACT_DAYS = 365, ACT_MAX = 3000, ACT_GROUP = 25;
   const FIELD_LABEL = { name: 'name', category: 'category', sku: 'SKU', purchasePrice: 'cost', sellingPrice: 'price', status: 'status', platform: 'platform', datePosted: 'date listed', dateSold: 'date sold',
-    totalAfterFees: 'after-fees total', shippingCost: 'shipping', notes: 'notes', listings: 'listings', brand: 'brand', size: 'size', color: 'color', condition: 'condition', measurements: 'measurements',
+    totalAfterFees: 'after-fees total', shippingCost: 'shipping', notes: 'notes', listings: 'listings', brand: 'brand', size: 'size', color: 'color', condition: 'condition', material: 'material', measurements: 'measurements',
     weight: 'weight', location: 'location', source: 'source', purchaseDate: 'purchase date', minPrice: 'lowest price', bundle: 'bundle', lastRelisted: 'relisted', disposedDate: 'write-off date',
     date: 'date', vendor: 'vendor', description: 'description', amount: 'amount', payment: 'payment', purpose: 'purpose', from: 'from', to: 'to', miles: 'miles', roundTrip: 'round trip' };
   const MONEY_F = new Set(['purchasePrice', 'sellingPrice', 'totalAfterFees', 'shippingCost', 'minPrice', 'amount']);
@@ -671,7 +672,7 @@
   }
   function blankItem(over = {}) {
     return { id: U.uid(), name: '', category: '', sku: nextSku(), purchasePrice: null, sellingPrice: null, status: 'available', platform: '', listings: [], datePosted: U.todayISO(), dateSold: '', totalAfterFees: null, shippingCost: null, notes: '',
-      brand: '', size: '', color: '', condition: '', measurements: '', weight: '', location: '', source: '', purchaseDate: '', minPrice: null,
+      brand: '', size: '', color: '', condition: '', material: '', measurements: '', weight: '', location: '', source: '', purchaseDate: '', minPrice: null,
       priceHistory: [], markdownStep: 0, lastMarkdown: '', lastRelisted: '', disposedDate: '', decideSnooze: '', bundle: false, createdAt: Date.now(), updatedAt: Date.now(), ...over };
   }
   function normalizeItem(raw) {
@@ -684,7 +685,7 @@
       datePosted: U.toISO(raw.datePosted || ''), dateSold: U.toISO(raw.dateSold || ''),
       totalAfterFees: U.num(raw.totalAfterFees), shippingCost: U.num(raw.shippingCost), notes: String(raw.notes ?? ''),
       listings: normListings(raw.listings),
-      brand: String(raw.brand ?? '').trim(), size: String(raw.size ?? '').trim(), color: String(raw.color ?? '').trim(), condition: String(raw.condition ?? '').trim(),
+      brand: String(raw.brand ?? '').trim(), size: String(raw.size ?? '').trim(), color: String(raw.color ?? '').trim(), condition: String(raw.condition ?? '').trim(), material: String(raw.material ?? '').trim(),
       measurements: String(raw.measurements ?? '').trim(), weight: String(raw.weight ?? '').trim(), location: String(raw.location ?? '').trim(), source: String(raw.source ?? '').trim(),
       purchaseDate: U.toISO(raw.purchaseDate || ''), minPrice: U.num(raw.minPrice),
       priceHistory: Array.isArray(raw.priceHistory) ? raw.priceHistory.filter((h) => h && h.date) : [],
@@ -757,7 +758,7 @@
   const uniqVals = (k) => uniq(state.items.map((i) => i[k]).filter(Boolean)).sort((a, b) => String(a).localeCompare(String(b)));
   /** Fill {placeholders} from an item; blank lines left by empty fields are removed. */
   function fillTemplate(tpl, it) {
-    const vals = { name: it.name, brand: it.brand, size: it.size, color: it.color, condition: it.condition, measurements: it.measurements, weight: it.weight,
+    const vals = { name: it.name, brand: it.brand, size: it.size, color: it.color, condition: it.condition, material: it.material, measurements: it.measurements, weight: it.weight,
       category: it.category, sku: it.sku, notes: it.notes, location: it.location, price: it.sellingPrice != null ? U.money(it.sellingPrice) : '' };
     const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const nameHas = (v) => v && it.name && new RegExp(`(^|\\W)${reEsc(v)}(\\W|$)`, 'i').test(String(it.name));
@@ -819,6 +820,7 @@
     { key: 'profit', label: 'Profit', type: 'money', computed: true, total: 'sum', get: (r) => Calc.profit(r), render: (r) => { const p = Calc.profit(r); return p === null ? '<span class="muted">—</span>' : `<span class="${p < 0 ? 'neg' : 'pos'}">${esc(U.money(p))}</span>`; } },
     { key: 'color', label: 'Color', type: 'text' },
     { key: 'condition', label: 'Condition', type: 'list', free: true, list: () => uniq([...(S().conditions || []), ...uniqVals('condition')]) },
+    { key: 'material', label: 'Material', type: 'list', free: true, list: () => uniq([...uniqVals('material'), ...(S().materials || DEFAULT_SETTINGS.materials)]) },
     { key: 'measurements', label: 'Measurements', type: 'text', width: 160 },
     { key: 'weight', label: 'Weight', type: 'text' },
     { key: 'source', label: 'Source', type: 'list', free: true, list: () => uniqVals('source') },
@@ -1073,6 +1075,7 @@
             <label class="field"><span>Size</span><input name="size" list="dlSize" value="${esc(it.size)}"></label>
             <label class="field"><span>Color</span><input name="color" value="${esc(it.color)}"></label>
             <label class="field"><span>Condition</span><input name="condition" list="dlCond" value="${esc(it.condition)}"></label>
+            <label class="field"><span>Material</span><input name="material" list="dlMat" value="${esc(it.material || '')}" placeholder="e.g. 100% cotton"></label>
             <label class="field"><span>Measurements</span><input name="measurements" value="${esc(it.measurements)}" placeholder="e.g. pit-to-pit 20in, length 26in"></label>
             <label class="field"><span>Weight</span><input name="weight" value="${esc(it.weight)}" placeholder="e.g. 12 oz"></label>
             <label class="field"><span>Package</span><select name="pkg"><option value="">—</option>${(S().packages || []).map((p) => `<option value="${esc(p.id)}" ${it.pkg === p.id ? 'selected' : ''}>${esc(p.name)}${p.cost != null && p.cost !== '' ? ' · ' + esc(U.money(p.cost)) : ''}</option>`).join('')}</select></label>
@@ -1093,7 +1096,7 @@
         <label class="field span-2"><span>Notes</span><textarea name="notes" rows="2">${esc(it.notes)}</textarea></label>
       </div>
       <div class="calc-box"><div>Days Active<b data-c="days">—</b></div><div>Fees<b data-c="fees">—</b></div><div>Profit<b data-c="profit">—</b></div></div>
-      ${dl('dlCat', allCats())}${dl('dlPlat', allPlatforms())}${dl('dlBrand', uniqVals('brand'))}${dl('dlSize', uniqVals('size'))}${dl('dlCond', uniq([...(S().conditions || []), ...uniqVals('condition')]))}${dl('dlLoc', uniqVals('location'))}${dl('dlSrc', uniqVals('source'))}`;
+      ${dl('dlCat', allCats())}${dl('dlPlat', allPlatforms())}${dl('dlBrand', uniqVals('brand'))}${dl('dlSize', uniqVals('size'))}${dl('dlMat', uniq([...uniqVals('material'), ...(S().materials || DEFAULT_SETTINGS.materials)]))}${dl('dlCond', uniq([...(S().conditions || []), ...uniqVals('condition')]))}${dl('dlLoc', uniqVals('location'))}${dl('dlSrc', uniqVals('source'))}`;
     const read = () => {
       const f = (n) => body.querySelector(`[name="${n}"]`).value;
       return { ...it, name: f('name').trim(), category: f('category').trim().toLowerCase(), sku: f('sku').trim(), purchasePrice: f('purchasePrice').trim() === '' ? null : U.round2(U.num(f('purchasePrice')) ?? 0), sellingPrice: f('sellingPrice').trim() === '' ? null : U.round2(U.num(f('sellingPrice')) ?? 0), status: f('status').toLowerCase(), platform: f('platform').trim().toLowerCase(), datePosted: f('datePosted'), dateSold: f('dateSold'), totalAfterFees: f('totalAfterFees').trim() === '' ? null : U.round2(U.num(f('totalAfterFees')) ?? 0), shippingCost: f('shippingCost').trim() === '' ? null : U.round2(U.num(f('shippingCost')) ?? 0), notes: f('notes') };
@@ -1129,7 +1132,7 @@
     const lstEd = listingsEditor(body.querySelector('[data-listings]'), it.listings || []);
     const readDetails = () => {
       const g = (n) => body.querySelector(`[name="${n}"]`).value.trim();
-      return { brand: g('brand'), size: g('size'), color: g('color'), condition: g('condition'), measurements: g('measurements'), weight: g('weight'),
+      return { brand: g('brand'), size: g('size'), color: g('color'), condition: g('condition'), material: g('material'), measurements: g('measurements'), weight: g('weight'),
         location: g('location'), source: g('source'), purchaseDate: g('purchaseDate'), minPrice: g('minPrice') === '' ? null : U.round2(U.num(g('minPrice')) ?? 0), pkg: g('pkg') };
     };
     const researchBox = body.querySelector('[data-research]');
@@ -1244,7 +1247,7 @@
     let photo = state.thumbs[id] && state.thumbs[id].thumb;
     try { const ph = await Store.getPhoto(id); if (ph && ph.full) photo = ph.full; } catch (_) { /* thumbnail is fine */ }
     const sold = Calc.isSold(it), d = Calc.daysActive(it), age = Calc.ageClass(it, S());
-    const facts = [['SKU', it.sku], ['Category', it.category], ['Brand', it.brand], ['Size', it.size], ['Color', it.color], ['Condition', it.condition], ['Location', it.location], ['Bought', it.purchaseDate ? U.fmtDate(it.purchaseDate) : ''], ['Source', it.source]]
+    const facts = [['SKU', it.sku], ['Category', it.category], ['Brand', it.brand], ['Size', it.size], ['Color', it.color], ['Condition', it.condition], ['Material', it.material], ['Location', it.location], ['Bought', it.purchaseDate ? U.fmtDate(it.purchaseDate) : ''], ['Source', it.source]]
       .filter(([, v]) => v).map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('');
     const lst = (it.listings || []).filter((l) => l.platform || l.url);
     const edited = it.editedBy ? `<div class="sh-edited">Last edited by <b>${esc(it.editedBy)}</b>${it.updatedAt ? ' · ' + esc(timeAgo(it.updatedAt)) : ''}</div>` : '';
@@ -1364,7 +1367,7 @@
       const keep = cur.sellingPrice != null ? priceToKeep(p, cur.sellingPrice) : null;
       const sell = p.sellUrl || p.url;
       const tLen = draft.title.length, dLen = draft.desc.length;
-      const facts = [['Brand', cur.brand], ['Size', cur.size], ['Color', cur.color], ['Condition', cur.condition], ['Category', cur.category], ['Measurements', cur.measurements], ['Weight', cur.weight], ['SKU', cur.sku]].filter(([, v]) => v);
+      const facts = [['Brand', cur.brand], ['Size', cur.size], ['Color', cur.color], ['Condition', cur.condition], ['Material', cur.material], ['Category', cur.category], ['Measurements', cur.measurements], ['Weight', cur.weight], ['SKU', cur.sku]].filter(([, v]) => v);
       root.innerHTML = `
         <div class="xl-top">
           <div class="xl-ph">${photo ? `<img src="${photo}" alt="">` : '<span>No photo</span>'}</div>
@@ -3318,7 +3321,7 @@
     const after = U.clone(existing);
     const take = (k) => { if (cols.includes(k) && r[k] !== undefined) after[k] = r[k]; };
     ['name', 'category', 'sku', 'purchasePrice', 'sellingPrice', 'status', 'datePosted', 'totalAfterFees'].forEach(take);
-    ['brand', 'size', 'color', 'condition', 'measurements', 'weight', 'location', 'source', 'purchaseDate', 'minPrice'].forEach((k) => { if (cols.includes(k) && r[k] !== undefined && r[k] !== '' && r[k] !== null) after[k] = r[k]; });
+    ['brand', 'size', 'color', 'condition', 'material', 'measurements', 'weight', 'location', 'source', 'purchaseDate', 'minPrice'].forEach((k) => { if (cols.includes(k) && r[k] !== undefined && r[k] !== '' && r[k] !== null) after[k] = r[k]; });
     if (cols.includes('dateSold') || cols.includes('status')) after.dateSold = r.dateSold || (after.status === 'sold' ? existing.dateSold : '');
     if (r.platform) after.platform = r.platform;
     if (cols.includes('shippingCost') && r.shippingCost !== null && r.shippingCost !== undefined) after.shippingCost = r.shippingCost;
@@ -3418,7 +3421,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.26i';
+  const APP_VERSION = '2026.11.26j';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3547,7 +3550,14 @@
   function applySettingsToUI() {
     applyTheme();
     if (ensurePlatformProfiles()) saveSettings();
-    if (!S().colsV3) { S().hiddenCols = uniq([...(S().hiddenCols || []), 'minPrice', 'color', 'condition', 'measurements', 'weight', 'source', 'purchaseDate']); S().colsV3 = true; saveSettings(); }
+    if (!S().colsV3) { S().hiddenCols = uniq([...(S().hiddenCols || []), 'minPrice', 'color', 'condition', 'material', 'measurements', 'weight', 'source', 'purchaseDate']); S().colsV3 = true; saveSettings(); }
+    // Material (new field): column starts hidden (Columns → Material shows it), and listing descriptions get a Material line
+    if (!S().colsMat) { S().hiddenCols = uniq([...(S().hiddenCols || []), 'material']); S().colsMat = true; saveSettings(); }
+    if (!S().tplMat && S().templates && typeof S().templates.description === 'string') {
+      const d = S().templates.description;
+      if (!/\{material\}/.test(d)) S().templates.description = /^.*\{condition\}.*$/m.test(d) ? d.replace(/^(.*\{condition\}.*)$/m, '$1\nMaterial: {material}') : d;
+      S().tplMat = true; saveSettings();
+    }
     U.setCurrency(S().currency);
     if (S().companyName === 'My Company') { S().companyName = ''; saveSettings(); } // the old placeholder default
     $('#companyName').value = S().companyName || '';

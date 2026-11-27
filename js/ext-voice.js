@@ -207,7 +207,7 @@
       if (live.length) parts.push('Listed on ' + live.join(', ')); else if (it.platform) parts.push('Platform ' + t.platformLabel(it.platform)); else parts.push('No marketplace recorded');
     }
     if (it.purchasePrice != null) parts.push(`Cost ${U.money(it.purchasePrice)}`);
-    [['SKU', it.sku], ['Brand', it.brand], ['Size', it.size], ['Color', it.color], ['Condition', it.condition], ['Category', it.category], ['In', it.location]].forEach(([k, v]) => { if (v) parts.push(`${k} ${v}`); });
+    [['SKU', it.sku], ['Brand', it.brand], ['Size', it.size], ['Color', it.color], ['Condition', it.condition], ['Material', it.material], ['Category', it.category], ['In', it.location]].forEach(([k, v]) => { if (v) parts.push(`${k} ${v}`); });
     if ((it.offers || []).some((o) => o.status === 'pending')) parts.push('Has an offer waiting');
     return parts.join('. ') + '.';
   }

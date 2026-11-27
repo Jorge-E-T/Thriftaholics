@@ -289,6 +289,9 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.26j', d: 'Nov 26, 2026', items: [
+      ['🧵', 'Material field', 'Items now have a Material field (right after Condition) for fabric content like “95% cotton, 5% spandex”. It shows in item details, the cross-list helper, listing descriptions ({material}), spreadsheet import/export and the Excel report. Turn on the column in Inventory → Columns.']
+    ] },
     { v: '2026.11.26i', d: 'Nov 26, 2026', items: [
       ['🗑️', 'Delete several photos at once', 'In an item’s photo manager, tick photos (or Select all) and tap Delete selected.'],
       ['🧹', 'Remove photos from many items', 'Select items in Inventory → Remove photos… to delete all their photos, or only the extras and keep the covers.']
