@@ -3295,6 +3295,41 @@
     if (!ended) U.toast('This backup looks cut off at the end — some photos may be missing.', 'err');
     return { format: 'inventory-ledger-backup', data: { ...core, photos } };
   }
+  /* A listing-update file only adds listing links and per-site prices to existing items — nothing else
+     about the items changes, so edits made since (SKUs, names, notes…) are safe. It saves like a normal
+     edit, so it syncs to the other phone and can be undone. Entry: { id, listings: [{platform, url, status, price, statusDate}] } */
+  async function applyListingPatch(patch, note) {
+    const changes = []; const perPlat = {}; let missing = 0, linksAdded = 0, pricesSet = 0, already = 0;
+    for (const p of patch) {
+      const cur = p && findItem(p.id); if (!cur) { missing++; continue; }
+      const it = U.clone(cur); it.listings = Array.isArray(it.listings) ? it.listings : [];
+      let touched = false;
+      for (const l of p.listings || []) {
+        if (!l || !l.platform || !l.url) continue;
+        const url = String(l.url).trim(); const price = l.price == null || l.price === '' ? null : +l.price;
+        const sitePrice = price != null && Math.abs(price - (+it.sellingPrice || 0)) > 0.009 ? price : null;
+        const same = it.listings.find((x) => x.url && x.url.replace(/\/$/, '') === url.replace(/\/$/, ''));
+        if (same) {
+          if ((same.price ?? null) !== sitePrice) { same.price = sitePrice; pricesSet++; touched = true; } else already++;
+          continue;
+        }
+        const blank = it.listings.find((x) => x.platform === l.platform && !x.url);
+        if (blank) { blank.url = url; if (sitePrice != null) blank.price = sitePrice; linksAdded++; touched = true; }
+        else { it.listings.push({ platform: l.platform, url, status: l.status || 'active', statusDate: l.statusDate || U.todayISO(), price: sitePrice }); linksAdded++; touched = true; }
+        perPlat[l.platform] = (perPlat[l.platform] || 0) + 1;
+      }
+      if (touched) changes.push({ id: it.id, after: it });
+    }
+    const sites = Object.entries(perPlat).map(([k, n]) => `${n} ${esc(platformLabel(k))}`).join(', ');
+    if (!changes.length) { U.toast(`Nothing to update — ${already ? 'all those links are already there' : 'no matching items found'}.`); return; }
+    const ok = await U.confirm('Add listing links',
+      `${note ? `${esc(note)}<br><br>` : ''}This adds <b>${linksAdded}</b> listing links${sites ? ` (${sites})` : ''}${pricesSet ? ` and updates <b>${pricesSet}</b> site prices` : ''} on <b>${changes.length}</b> items.<br><br>Nothing else about the items changes.${missing ? ` ${missing} items in the file aren’t in this inventory and will be skipped.` : ''}`,
+      'Add links');
+    if (!ok) return;
+    commit('items', changes, { label: 'add listing links' });
+    renderAll();
+    U.toast(`Added ${linksAdded} listing links to ${changes.length} items`, 'ok');
+  }
   async function importJSON(file) {
     const release = holdLock('a restore');
     try { return await importJSONInner(file); } finally { release(); }
@@ -3324,6 +3359,7 @@
       else if (obj.data) data = obj.data;
       else if (obj.items) data = obj;
       else throw new Error('Unrecognized backup format');
+      if (Array.isArray(data.listingPatch)) { await applyListingPatch(data.listingPatch, data.note); return; }
       const items = (data.items || []).map(normalizeItem);
       const expenses = (data.expenses || []).map(normalizeExpense);
       const choice = await U.modal({
@@ -3550,7 +3586,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.27k';
+  const APP_VERSION = '2026.11.27l';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;

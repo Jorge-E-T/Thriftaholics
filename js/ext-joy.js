@@ -289,6 +289,9 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.27l', d: 'Nov 27, 2026', items: [
+      ['🔗', 'Listing-update files', 'Restore can now take a file that only adds listing links and site prices to existing items — nothing else changes, it syncs, and Undo takes it back.']
+    ] },
     { v: '2026.11.27k', d: 'Nov 27, 2026', items: [
       ['➕', 'Quick add', 'A floating ＋ Add item button on phones and tablets: start with photos, type it in, or copy an item. A short form with Save & add another for whole hauls, and More details for the full editor.']
     ] },
