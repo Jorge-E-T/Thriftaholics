@@ -1426,9 +1426,21 @@ body.has-bulkbar .toasts { bottom: calc(var(--bbh, 60px) + 34px); }
 /* research */
 .research .lst-head { margin-bottom: 8px; }
 .rs-q input { width: 100%; margin-bottom: 8px; }
-.rs-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.rs-link { display: flex; flex-direction: column; padding: 7px 14px 7px 12px; border-radius: 10px; text-decoration: none; color: var(--text); background: color-mix(in srgb, var(--c) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); border-left: 4px solid var(--c); transition: transform .15s var(--ease); }
-.rs-link:hover { transform: translateY(-2px); } .rs-link b { font-size: 13.5px; } .rs-link em { font-style: normal; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
+.rs-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 6px; }
+.rs-site { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 10px; background: color-mix(in srgb, var(--c) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); border-left: 4px solid var(--c); }
+.rs-site > b { font-size: 13px; white-space: nowrap; }
+.rs-bs { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.rs-b { font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 999px; text-decoration: none; color: var(--text); background: var(--surface); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); transition: transform .15s var(--ease), background .15s; white-space: nowrap; }
+.rs-b:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--c) 16%, var(--surface)); }
+.rs-b.sold { background: color-mix(in srgb, var(--c) 20%, var(--surface)); }
+.rs-b.ours { border-style: dashed; }
+.research .lst-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .research .lst-head .rs-edit { margin-left: auto; }
+.rs-pick { margin: 0 0 8px; padding: 8px; border-radius: 10px; border: 1px dashed var(--border); }
+.rs-opts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.rs-opt { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); border-left: 4px solid var(--c); font-size: 12.5px; cursor: pointer; }
+.rs-opt em { font-style: normal; font-size: 10.5px; color: var(--text-3); }
+.rs-pact { display: flex; gap: 6px; justify-content: flex-end; }
+@media (max-width: 520px) { .rs-links { grid-template-columns: 1fr 1fr; } .rs-site { flex-direction: column; align-items: flex-start; } .rs-bs { justify-content: flex-start; } }
 
 /* hauls */
 .hauls { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow: auto; }
@@ -1768,3 +1780,13 @@ table tbody tr.sku-sold > td { border-top: 1px dashed #c9952e !important; }
 .ph-tile.picked { outline: 3px solid var(--danger); outline-offset: -3px; }
 .ph-tile.picked img { opacity: .7; }
 .ph-tile.cover .ph-cv { left: auto; right: 6px; }
+
+/* item editor: new photos waiting for Save */
+.pd-pending { margin: 0; padding: 8px 10px; border-radius: 10px; background: rgba(201,149,46,.14); color: var(--ink); font-size: .86rem; line-height: 1.45; }
+.pd-pending.warn { background: rgba(184,58,50,.12); color: #8f2a24; animation: pdShake .45s ease; }
+.pd-choice .seg button.pop { animation: pdPop .35s cubic-bezier(.3,1.6,.5,1); }
+.btn.pulse-save { animation: pdPulse 1.6s ease-in-out 3; }
+@keyframes pdPop { 0% { transform: scale(.9); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes pdPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(201,149,46,.0); transform: scale(1); } 40% { box-shadow: 0 0 0 6px rgba(201,149,46,.45); transform: scale(1.04); } }
+@keyframes pdShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .pd-pending.warn, .pd-choice .seg button.pop, .btn.pulse-save { animation: none; } .btn.pulse-save { box-shadow: 0 0 0 3px rgba(201,149,46,.5); } }
