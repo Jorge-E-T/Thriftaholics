@@ -289,6 +289,9 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.27k', d: 'Nov 27, 2026', items: [
+      ['➕', 'Quick add', 'A floating ＋ Add item button on phones and tablets: start with photos, type it in, or copy an item. A short form with Save & add another for whole hauls, and More details for the full editor.']
+    ] },
     { v: '2026.11.27j', d: 'Nov 27, 2026', items: [
       ['🎯', 'Tidier select-all', 'In card and gallery views the select-all checkbox now sits centered in its bubble, labelled “All”.']
     ] },

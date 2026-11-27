@@ -1042,8 +1042,9 @@
   const dl = (id, arr) => `<datalist id="${id}">${arr.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>`;
   const numVal = (v) => (v === null || v === undefined ? '' : v);
 
-  async function itemDialog(item) {
-    const it = item ? U.clone(item) : blankItem();
+  async function itemDialog(item, opts = {}) {
+    // opts.prefill: starting values for a new item; opts.files: photos already chosen (from Quick add)
+    const it = item ? U.clone(item) : blankItem(opts.prefill || {});
     const body = document.createElement('div');
     body.innerHTML = `
       <div class="photo-field">
@@ -1166,6 +1167,7 @@
     attachDropZone(body.querySelector('.photo-field') || zone, (f, fs) => takeFiles(fs || [f]));
     zone.addEventListener('click', async () => { if (window.Ext && Ext.pickFiles) { const fs = await Ext.pickFiles('image/*', true); if (fs.length) takeFiles(fs); } else { const f = await U.pickFile('image/*'); if (f) takeFile(f); } });
     zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zone.click(); } });
+    if (opts.files && opts.files.length) setTimeout(() => takeFiles(opts.files), 0); // after the window is open, so the Save button can pulse
     rmBtn.addEventListener('click', () => { if (pendingFiles.length) { pendingFiles = []; pendingMode = 'add'; paintChoice(); showZone(state.thumbs[it.id] ? state.thumbs[it.id].thumb : null); return; } pendingPhoto = null; showZone(null); });
     body.querySelector('[data-photo-camera]').addEventListener('click', async () => { const f = await U.pickFile('image/*', 'environment'); if (f) takeFile(f); });
     const res = await U.modal({
@@ -3548,7 +3550,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.27j';
+  const APP_VERSION = '2026.11.27k';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
