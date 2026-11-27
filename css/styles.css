@@ -710,7 +710,9 @@ td.ed:hover .add-listing { color: var(--ink-3); }
 .cards-mode .grid thead th { position: static !important; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); min-width: 0 !important; }
 .cards-mode .grid thead th .th { padding: 6px 11px; font-size: 10.5px; }
 .cards-mode .grid thead th.col-photo, .cards-mode .grid thead th.col-actions, .cards-mode .grid thead th.m-off { display: none; }
-.cards-mode .grid thead th.col-check .th { padding: 5px 9px; }
+.cards-mode .grid thead th.col-check { width: auto !important; min-width: 0 !important; }
+.cards-mode .grid thead th.col-check .th { padding: 5px 11px; justify-content: center; gap: 0; }
+.cards-mode .grid thead th.col-check input { margin: 0; }
 .cards-mode .grid thead th.col-check .th::after { content: "All"; margin-left: 4px; }
 .cards-mode .grid .stk { position: static !important; left: auto !important; }
 .cards-mode .grid .stk-last::after { display: none; }
@@ -1797,3 +1799,13 @@ table tbody tr.sku-sold > td { border-top: 1px dashed #c9952e !important; }
 .dl-track { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; }
 .dl-track i { display: block; height: 100%; width: 0; background: var(--accent, #1f5c4a); transition: width .4s; }
 .dl-prog [data-dlstop] { grid-row: 1; grid-column: 2; }
+
+/* backup in progress */
+.spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 6px; flex: none; }
+.spin.big { width: 22px; height: 22px; border-width: 3px; margin: 0; color: var(--accent, #1f5c4a); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn.is-busy { opacity: .85; cursor: progress; }
+.bk-busy { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 75; display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.18); width: max-content; max-width: calc(100% - 24px); animation: bkIn .25s ease-out; }
+.bk-busy div { display: flex; flex-direction: column; font-size: 13.5px; } .bk-busy small { color: var(--text-3); font-size: 12px; }
+@keyframes bkIn { from { opacity: 0; transform: translate(-50%, 8px); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 1.6s; } .bk-busy { animation: none; } }
