@@ -289,6 +289,18 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.27j', d: 'Nov 27, 2026', items: [
+      ['🎯', 'Tidier select-all', 'In card and gallery views the select-all checkbox now sits centered in its bubble, labelled “All”.']
+    ] },
+    { v: '2026.11.27i', d: 'Nov 27, 2026', items: [
+      ['🔐', 'No auto-lock mid-job', 'Auto-lock now waits while a backup, restore, photo download or Excel report is running, and the countdown restarts when it finishes. Pressing Lock during one asks first.']
+    ] },
+    { v: '2026.11.27h', d: 'Nov 27, 2026', items: [
+      ['💾', 'Backups of any size', 'Backups are now written one record per line, so they work no matter how many photos you have (the old way failed past about 500 MB). Restoring reads them a piece at a time with a progress card. Older backups still restore as before.']
+    ] },
+    { v: '2026.11.27g', d: 'Nov 27, 2026', items: [
+      ['⏳', 'Backup spinner', 'While a backup is being built the Backup button spins and locks, and a card at the bottom shows what it’s doing — no more wondering whether to click again. Backups are also a little smaller and faster to make.']
+    ] },
     { v: '2026.11.27f', d: 'Nov 27, 2026', items: [
       ['🧹', 'Restore files can fix mistakes', 'A restore file can now remove photos or items that were added by mistake before bringing in the right ones.']
     ] },

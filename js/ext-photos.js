@@ -99,6 +99,7 @@
     if (!todo.length) return { added: 0, failed: 0 };
     const size = { full: Math.min(1400, Math.max(400, +opts.full || 1400)), thumb: 240, quality: Math.min(0.92, Math.max(0.5, +opts.quality || 0.84)) };
     const run = linkRun = { done: 0, added: 0, failed: [], stop: false, total: todo.length };
+    const release = t.holdLock ? t.holdLock('downloading photos') : () => {};
     const bar = document.createElement('div'); bar.className = 'dl-prog'; bar.setAttribute('role', 'status');
     bar.innerHTML = `<div class="dl-txt"><b>📥 Downloading photos</b><span data-dl></span><small>Keep this tab open — you can keep working.</small></div><div class="dl-track"><i data-dlbar></i></div><button type="button" class="btn btn-ghost btn-sm" data-dlstop>Stop</button>`;
     document.body.appendChild(bar);
@@ -120,7 +121,7 @@
       }
     };
     try { await Promise.all([worker(), worker(), worker(), worker()]); } finally {
-      linkRun = null; paint(); bar.remove(); t.renderAll(); if (window.Sync) Sync.changed();
+      linkRun = null; release(); paint(); bar.remove(); t.renderAll(); if (window.Sync) Sync.changed();
     }
     const msg = run.stop ? `Stopped — ${run.added} photos added. Import the same file again to finish the rest.`
       : `${run.added} photos added${run.failed.length ? ` · ${run.failed.length} couldn’t be downloaded (import the file again to retry)` : ''}`;

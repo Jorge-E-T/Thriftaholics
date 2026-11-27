@@ -393,6 +393,26 @@
     async decryptBackup(file, password) {
       const k = await deriveKey(password, unb64(file.salt), file.iterations || ITERATIONS);
       return decryptWith(k, { iv: unb64(file.iv), ct: unb64(file.data) });
+    },
+    /* Line-by-line backups (any size): one key per file, each line encrypted on its own. */
+    async backupLineKey(password, saltB64, iterations) {
+      const salt = saltB64 ? unb64(saltB64) : rand(16);
+      const it = iterations || ITERATIONS;
+      return { key: await deriveKey(password, salt, it), salt: b64(salt), iterations: it };
+    },
+    async encLine(key, obj) { const { iv, ct } = await encryptWith(key, obj); return { iv: b64(iv), ct: b64(ct) }; },
+    async decLine(key, rec) { return decryptWith(key, { iv: unb64(rec.iv), ct: unb64(rec.ct) }); },
+    /** Visit every photo one at a time (decrypted), without holding them all in memory. */
+    async eachPhoto(fn) {
+      const k = requireKey();
+      const thumbs = await getAll('thumbs');
+      for (const t of thumbs) {
+        const tv = await decryptWith(k, t);
+        const r = await get('photos', t.id);
+        const fv = r ? await decryptWith(k, r) : {};
+        await fn(t.id, { thumb: tv.thumb, w: tv.w, h: tv.h, full: fv.full || tv.thumb });
+      }
+      return thumbs.length;
     }
   };
 

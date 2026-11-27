@@ -3177,6 +3177,10 @@
       </div>` + reportExtrasHTML();
   }
   async function exportExcel() {
+    const release = holdLock('an Excel report');
+    try { return await exportExcelInner(); } finally { release(); }
+  }
+  async function exportExcelInner() {
     const viewIsReports = $('#view-reports').classList.contains('active');
     const r = viewIsReports ? reportRange() : U.rangePreset('all');
     try {
@@ -3190,25 +3194,118 @@
   /* =========================================================
      IMPORT / EXPORT
      ========================================================= */
+  /* Backups can take a while with many photos: the Backup buttons spin and lock, and a status card
+     says what's happening, so nobody clicks again and again.
+     Backups are written one record per line (header, core data, then one line per photo) so they
+     work at any size — a single giant JSON string fails in browsers past ~500 MB. */
+  let backupBusy = false;
+  function busyCard(title, text) {
+    let card = document.getElementById('backupBusy');
+    if (title === null) { if (card) card.remove(); return; }
+    if (!card) { card = document.createElement('div'); card.id = 'backupBusy'; card.className = 'bk-busy'; card.setAttribute('role', 'status'); card.innerHTML = '<span class="spin big" aria-hidden="true"></span><div><b data-bkt></b><small data-bk></small></div>'; document.body.appendChild(card); }
+    card.querySelector('[data-bkt]').textContent = title; card.querySelector('[data-bk]').textContent = text || '';
+  }
+  function backupUI(on, text) {
+    const btns = ['#btnExportJson', '#btnExportJson2'].map((sel) => $(sel)).filter(Boolean);
+    btns.forEach((b) => {
+      if (on) { if (!b.dataset.label) b.dataset.label = b.innerHTML; b.classList.add('is-busy'); b.disabled = true; b.setAttribute('aria-busy', 'true'); b.innerHTML = '<span class="spin" aria-hidden="true"></span>Backing up…'; }
+      else { b.classList.remove('is-busy'); b.disabled = false; b.removeAttribute('aria-busy'); if (b.dataset.label) { b.innerHTML = b.dataset.label; delete b.dataset.label; } }
+    });
+    busyCard(on ? 'Building your backup…' : null, text);
+  }
+  const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 30)));
   async function exportJSON() {
-    const photos = await Store.allPhotos();
-    const payload = { format: 'inventory-ledger-backup', version: 2, app: 'Inventory & Sales Ledger', exportedAt: new Date().toISOString(), counts: { items: state.items.length, expenses: state.expenses.length, photos: Object.keys(photos).length }, data: { items: state.items, expenses: state.expenses, mileage: state.mileage, settings: state.settings, logo: state.logo, photos } };
-    let out = payload;
+    if (backupBusy) { U.toast('The backup is already being built — hang on a moment'); return; }
+    let pw = null;
     if (S().encryptBackup) {
-      const pw = await U.prompt('Encrypt backup', 'Password for this backup file (you will need it to restore)', { type: 'password', okLabel: 'Encrypt & download' });
+      pw = await U.prompt('Encrypt backup', 'Password for this backup file (you will need it to restore)', { type: 'password', okLabel: 'Encrypt & download' });
       if (!pw) return;
-      out = await Store.encryptBackup(payload, pw);
-      out.exportedAt = payload.exportedAt; out.counts = payload.counts;
     }
-    U.download(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }), `${U.slug(S().companyName || 'Thriftaholics')}-backup-${U.stamp()}${S().encryptBackup ? '-encrypted' : ''}.json`);
-    state.meta.lastBackup = new Date().toISOString();
-    persist(() => Store.putVault('lastBackup', state.meta.lastBackup));
-    renderSettings(); renderBanner();
-    U.toast('Backup downloaded' + (S().encryptBackup ? ' (encrypted)' : ' — store it somewhere private'), 'ok');
+    backupBusy = true; const release = holdLock('a backup');
+    try {
+      backupUI(true, 'Getting ready… please don’t close the app.'); await nextPaint();
+      const kk = pw ? await Store.backupLineKey(pw) : null;
+      const seal = async (obj) => JSON.stringify(kk ? { e: await Store.encLine(kk.key, obj) } : obj) + '\n';
+      const parts = []; const total = Object.keys(state.thumbs).length;
+      const head = { format: 'inventory-ledger-backup', version: 3, layout: 'lines', app: 'Inventory & Sales Ledger', exportedAt: new Date().toISOString(),
+        counts: { items: state.items.length, expenses: state.expenses.length, photos: total }, encrypted: !!kk, ...(kk ? { kdf: 'PBKDF2-SHA256', iterations: kk.iterations, salt: kk.salt } : {}) };
+      parts.push(JSON.stringify(head) + '\n');
+      parts.push(await seal({ t: 'core', data: { items: state.items, expenses: state.expenses, mileage: state.mileage, settings: state.settings, logo: state.logo } }));
+      let n = 0, last = 0;
+      await Store.eachPhoto(async (id, ph) => {
+        parts.push(await seal({ t: 'photo', id, p: ph })); n++;
+        if (Date.now() - last > 400) { last = Date.now(); backupUI(true, `Adding photos… ${n} of ${total}`); await nextPaint(); }
+      });
+      parts.push(JSON.stringify({ t: 'end', photos: n }) + '\n');
+      backupUI(true, 'Saving the file…'); await nextPaint();
+      const blob = new Blob(parts, { type: 'application/json' }); parts.length = 0;
+      U.download(blob, `${U.slug(S().companyName || 'Thriftaholics')}-backup-${U.stamp()}${pw ? '-encrypted' : ''}.json`);
+      state.meta.lastBackup = new Date().toISOString();
+      persist(() => Store.putVault('lastBackup', state.meta.lastBackup));
+      renderSettings(); renderBanner();
+      U.toast(`Backup downloaded (${n} photos, ${Math.round(blob.size / 1048576)} MB)` + (pw ? ' — encrypted' : ' — store it somewhere private'), 'ok');
+    } catch (e) {
+      console.error(e); U.toast('Backup failed: ' + (e && e.message || e), 'err');
+    } finally {
+      backupBusy = false; backupUI(false); release();
+    }
+  }
+  /** Read a line-by-line backup (version 3) in chunks; returns { format, data } like an ordinary backup, or null if cancelled. */
+  async function readLineBackup(file) {
+    const CHUNK = 8 * 1048576; const dec = new TextDecoder();
+    let pos = 0, carry = '', head = null, key = null, core = null, ended = false; const photos = {}; let n = 0, last = 0;
+    const handle = async (line) => {
+      if (!line.trim()) return;
+      let rec = JSON.parse(line);
+      if (!head) {
+        head = rec;
+        if (head.encrypted) {
+          busyCard(null);
+          const pw = await U.prompt('Encrypted backup', 'Enter the password used for this backup', { type: 'password', okLabel: 'Decrypt' });
+          if (!pw) throw Object.assign(new Error('cancelled'), { cancelled: true });
+          key = (await Store.backupLineKey(pw, head.salt, head.iterations)).key;
+          busyCard('Reading the backup…', 'Checking the password…');
+        }
+        return;
+      }
+      if (rec.e) { try { rec = await Store.decLine(key, rec.e); } catch (_) { throw Object.assign(new Error('Wrong password for that backup.'), { friendly: true }); } }
+      if (rec.t === 'core') core = rec.data;
+      else if (rec.t === 'photo' && rec.id && rec.p) { photos[rec.id] = rec.p; n++; }
+      else if (rec.t === 'end') ended = true;
+    };
+    busyCard('Reading the backup…', 'Opening the file…'); await nextPaint();
+    try {
+      while (pos < file.size) {
+        const buf = await file.slice(pos, pos + CHUNK).arrayBuffer(); pos += CHUNK;
+        const text = carry + dec.decode(buf, { stream: pos < file.size });
+        const lines = text.split('\n'); carry = lines.pop();
+        for (const ln of lines) await handle(ln);
+        if (Date.now() - last > 400) { last = Date.now(); busyCard('Reading the backup…', `${Math.min(100, Math.round(100 * pos / file.size))}% · ${n} photos`); await nextPaint(); }
+      }
+      if (carry) await handle(carry);
+    } catch (e) {
+      busyCard(null);
+      if (e.cancelled) return null;
+      throw e;
+    }
+    busyCard(null);
+    if (!core) throw new Error('This backup file is incomplete.');
+    if (!ended) U.toast('This backup looks cut off at the end — some photos may be missing.', 'err');
+    return { format: 'inventory-ledger-backup', data: { ...core, photos } };
   }
   async function importJSON(file) {
+    const release = holdLock('a restore');
+    try { return await importJSONInner(file); } finally { release(); }
+  }
+  async function importJSONInner(file) {
     let obj;
-    try { obj = JSON.parse(await U.readFile(file)); } catch (_) { U.toast('That file is not valid JSON.', 'err'); return; }
+    const peek = await file.slice(0, 400).text().catch(() => '');
+    if (/^\{"format":"inventory-ledger-backup","version":3/.test(peek)) {
+      try { obj = await readLineBackup(file); } catch (e) { console.error(e); U.toast(e.friendly ? e.message : 'Could not read that backup: ' + e.message, 'err'); return; }
+      if (!obj) return;
+    } else {
+      try { obj = JSON.parse(await U.readFile(file)); } catch (e) { U.toast(/string length|memory/i.test(String(e && e.message)) ? 'That file is too large to open as a single JSON file.' : 'That file is not valid JSON.', 'err'); return; }
+    }
     try {
       if (obj && obj.encrypted) {
         const pw = await U.prompt('Encrypted backup', 'Enter the password used for this backup', { type: 'password', okLabel: 'Decrypt' });
@@ -3451,7 +3548,7 @@
   /* =========================================================
      SAFETY SNAPSHOTS — automatic restore points
      ========================================================= */
-  const APP_VERSION = '2026.11.27f';
+  const APP_VERSION = '2026.11.27j';
   const MAX_SNAPSHOTS = 10;
   async function takeSnapshot(reason) {
     if (!state.items.length && !state.expenses.length) return;
@@ -3760,11 +3857,19 @@
      LOCK / UNLOCK / AUTO-LOCK
      ========================================================= */
   let lastActivity = Date.now(), lockTimer = null;
+  /* Long jobs (backup, restore, photo downloads, Excel) hold off the inactivity lock: locking erases the
+     key from memory, which would break the job halfway. The countdown restarts when the job ends. */
+  const lockHolds = new Map(); let holdSeq = 0;
+  function holdLock(why) {
+    const id = ++holdSeq; lockHolds.set(id, why || 'busy');
+    let done = false;
+    return () => { if (done) return; done = true; lockHolds.delete(id); lastActivity = Date.now(); };
+  }
   function armAutoLock() {
     clearInterval(lockTimer);
     const min = S().autoLockMin;
     if (!min) return;
-    lockTimer = setInterval(() => { if (Store.unlocked && Date.now() - lastActivity > min * 60000) lockApp('Locked after inactivity.'); }, 15000);
+    lockTimer = setInterval(() => { if (Store.unlocked && !lockHolds.size && Date.now() - lastActivity > min * 60000) lockApp('Locked after inactivity.'); }, 15000);
   }
   ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'wheel'].forEach((ev) => window.addEventListener(ev, () => { lastActivity = Date.now(); }, { passive: true, capture: true }));
 
@@ -4048,7 +4153,14 @@
       if (!/^\d{4}$/.test(v.trim())) { U.toast('Type a 4-digit year', 'err'); return; }
       Print.taxYear(printCtx(), +v.trim());
     };
-    $('#btnLock').onclick = () => lockApp('Locked.');
+    $('#btnLock').onclick = async () => {
+      if (lockHolds.size) {
+        const what = [...new Set(lockHolds.values())].join(' and ');
+        if (!(await U.confirm('Still working', `The app is busy with ${what}. Locking now will stop it partway. Lock anyway?`, 'Lock anyway', true))) return;
+        lockHolds.clear();
+      }
+      lockApp('Locked.');
+    };
 
     $('#lockForm').addEventListener('submit', onLockSubmit);
     $('#lockReset').onclick = () => forgotPassword();
@@ -4066,6 +4178,7 @@
 
     /* ---------- internal API for the add-on modules (js/ext-*.js) ---------- */
     window.TA = {
+      holdLock,
       state, S, saveSettings, commit, findItem, renderAll, renderView, currentView, showView, profiles, profileFor, platformLabel, platformColor,
       esc, uniq, uniqVals, statusBadge, thumbOf, skuQuery, setPhoto, removePhoto, refreshPhotoRow, itemDialog, openItemSheet, markSoldDialog, persist, myName, addActivity,
       flashRow, saving, ICON, allPlatforms, allCats, normalizeItem, normalizeTrip, blankItem, nextSku, copyText, labelCtx, printCtx, kpi, timeAgo, crossListDialog,
