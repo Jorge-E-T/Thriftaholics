@@ -93,9 +93,13 @@
     if (!r.width || r.bottom < 0 || r.top > window.innerHeight) { fab.classList.add('hidden'); return; }
     fab.classList.remove('hidden');
     const s = 34, tall = fabFor.tagName === 'TEXTAREA';
-    fab.style.left = (r.right - s - 4) + 'px';
+    // boxes with a suggestion list (Brand, Size…) or a spinner/picker have the browser's own arrow at the
+    // right edge — sit just left of it so a click on the arrow never turns the microphone on
+    const gap = hasArrow(fabFor) ? 26 : 0;
+    fab.style.left = (r.right - s - 4 - gap) + 'px';
     fab.style.top = (tall ? r.bottom - s - 4 : r.top + (r.height - s) / 2) + 'px';
   }
+  const hasArrow = (el) => el.tagName === 'INPUT' && (el.hasAttribute('list') || /^(number|date|time|datetime-local|month|week)$/.test(el.type));
   function showFab(el) {
     if (!enabled() || !supported || el.closest('.vc-skip') || el.hasAttribute('data-vc-inline')) return;
     if (!fab) {
@@ -104,10 +108,10 @@
       fab.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (fabFor) listen(fabFor, fab); });
       document.body.appendChild(fab);
     }
-    clearTimeout(hideT); fabFor = el; el.classList.add('vc-pad'); placeFab();
+    clearTimeout(hideT); fabFor = el; el.classList.add('vc-pad'); el.classList.toggle('vc-pad-arrow', hasArrow(el)); placeFab();
     [60, 180, 360, 600].forEach((ms) => setTimeout(placeFab, ms)); // windows slide in, so re-check the spot
   }
-  function hideFab() { hideT = setTimeout(() => { if (rec) return; if (fab) fab.classList.add('hidden'); if (fabFor) fabFor.classList.remove('vc-pad'); fabFor = null; }, 150); }
+  function hideFab() { hideT = setTimeout(() => { if (rec) return; if (fab) fab.classList.add('hidden'); if (fabFor) fabFor.classList.remove('vc-pad', 'vc-pad-arrow'); fabFor = null; }, 150); }
 
   /* ---------- built-in mic buttons in the search boxes ---------- */
   function inlineMic(input, cls) {

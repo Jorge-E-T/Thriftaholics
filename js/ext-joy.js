@@ -289,6 +289,10 @@
      WHAT'S NEW (once per device after each update)
      ===================================================== */
   const CHANGES = [
+    { v: '2026.11.27n', d: 'Nov 27, 2026', items: [
+      ['🧹', 'Fix spellings', 'Settings → Fix spellings lists every brand, color, size and material, points out look-alikes (Shein / SHEIN / Shien) and fixes a misspelling on every item at once — names too, if you like. One Undo takes it back.'],
+      ['🎤', 'Mic out of the way', 'On a PC, the microphone in boxes with suggestions (like Brand) now sits left of the dropdown arrow, so opening the list never turns the mic on.']
+    ] },
     { v: '2026.11.27m', d: 'Nov 27, 2026', items: [
       ['🔎', 'Curtsy in Research prices', 'Curtsy now has its own button in Research prices, with ★ Ours when the item is listed there.']
     ] },
